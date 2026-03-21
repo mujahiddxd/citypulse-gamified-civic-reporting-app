@@ -1,0 +1,59 @@
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background-image: url('../assets/anime_bg.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.login-card {
+    max-width: 420px;
+    width: 100%;
+    padding: 2.5rem;
+    background: var(--bg-card);
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-label {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    text-transform: uppercase;
+}
+
+.form-input {
+    padding: 0.875rem 1rem;
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    background: #ffffff;
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+    box-shadow: inset 2px 2px 0px rgba(0, 0, 0, 0.05);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 4px 4px 0px var(--border);
+    transform: translate(-2px, -2px);
+}
+
+.form-input::placeholder {
+    color: var(--text-muted);
+    font-weight: 500;
+}
