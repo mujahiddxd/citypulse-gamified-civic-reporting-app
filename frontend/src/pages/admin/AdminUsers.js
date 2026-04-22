@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { SkeletonAdminTable } from '../../components/ui/SkeletonLoader';
 
 export const AdminUsers = () => {
   const { session } = useAuth();
@@ -12,7 +12,21 @@ export const AdminUsers = () => {
 
   useEffect(() => {
     if (session?.access_token) localStorage.setItem('access_token', session.access_token);
-    api.get('/admin/users').then(r => { setUsers(r.data); setLoading(false); }).catch(() => setLoading(false));
+    const fetchUsers = async () => {
+      setLoading(true);
+      const start = Date.now();
+      try {
+        const r = await api.get('/admin/users');
+        setUsers(r.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        const elapsed = Date.now() - start;
+        
+        setLoading(false);
+      }
+    };
+    fetchUsers();
   }, [session?.access_token]);
 
   const toggleRole = async (userId, currentRole) => {
@@ -51,7 +65,7 @@ export const AdminUsers = () => {
           {filtered.length} of {users.length} users
         </span>
       </div>
-      {loading ? <div>Loading...</div> : (
+      {loading ? <SkeletonAdminTable rows={8} cols={7} /> : (
         <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', overflowX: 'auto' }}>
           <table className="table">
             <thead>
@@ -68,7 +82,7 @@ export const AdminUsers = () => {
             <tbody>
               {filtered.map(u => (
                 <tr key={u.id}>
-                  <td><Link to={`/profile/${u.username}`} style={{ color: 'var(--red-400)' }}>{u.username}</Link></td>
+                  <td><a href={`/profile/${u.username}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--red-400)' }}>{u.username}</a></td>
                   <td style={{ color: 'var(--text-muted)' }}>{u.email}</td>
                   <td>Lv. {u.level}</td>
                   <td style={{ color: '#FFD700', fontFamily: 'var(--font-display)', fontWeight: '700' }}>{u.xp?.toLocaleString()}</td>
@@ -99,7 +113,21 @@ export const AdminFeedback = () => {
 
   useEffect(() => {
     if (session?.access_token) localStorage.setItem('access_token', session.access_token);
-    api.get('/admin/feedback').then(r => { setFeedback(r.data); setLoading(false); }).catch(() => setLoading(false));
+    const fetchFeedback = async () => {
+      setLoading(true);
+      const start = Date.now();
+      try {
+        const r = await api.get('/admin/feedback');
+        setFeedback(r.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        const elapsed = Date.now() - start;
+        
+        setLoading(false);
+      }
+    };
+    fetchFeedback();
   }, [session]);
 
   const markRead = async (id) => {
@@ -111,7 +139,7 @@ export const AdminFeedback = () => {
 
   return (
     <AdminLayout title="📝 Feedback Submissions">
-      {loading ? <div>Loading...</div> : (
+      {loading ? <SkeletonAdminTable rows={6} cols={4} /> : (
         <div style={{ display: 'flex', gap: '1.5rem' }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {feedback.map(f => (

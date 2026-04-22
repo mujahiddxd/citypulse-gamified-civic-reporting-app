@@ -7,7 +7,7 @@
  * Routes (under /api/analytics):
  *   GET /overview              → High-level platform stats (counts, totals)
  *   GET /complaints-over-time  → Daily complaint counts for a line chart
- *   GET /type-distribution     → Garbage vs. Crowd Management split (for pie chart)
+ *   GET /type-distribution     → Garbage (for pie chart)
  *   GET /area-counts           → Top 10 areas by approved complaint count (bar chart)
  *   GET /top-users             → Top 10 users by all-time XP
  */
@@ -92,7 +92,7 @@ router.get('/complaints-over-time', requireAdmin, async (req, res) => {
 
 // ── GET /api/analytics/type-distribution ─────────────────────────────────────
 // Returns how many complaints are of each type.
-// Used for a pie chart: "Garbage" vs "Crowd Management"
+// Used for a pie chart: "Garbage"
 router.get('/type-distribution', requireAdmin, async (req, res) => {
   const { data } = await supabase.from('complaints').select('type');
   const counts = {};

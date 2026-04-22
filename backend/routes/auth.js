@@ -32,9 +32,8 @@ const usernameValidator = body('username')
 
 // Email: must be a valid email format; normalizeEmail() lowercases it
 const emailValidator = body('email')
-  .isEmail()
-  .normalizeEmail()
-  .withMessage('Valid email required');
+  .matches(/^[a-zA-Z0-9._%+-]+@gmail\.com$/)
+  .withMessage('Valid Gmail address required (e.g., user@gmail.com)')
 
 // Password: at least 8 chars, must include both a letter and a number
 const passwordValidator = body('password')
@@ -74,30 +73,17 @@ router.post('/register', [
     return res.status(400).json({ error: 'Username already taken' });
   }
 
-  // Create the auth user in Supabase Auth (sends verification email by default)
-  // We pass username in options.data so the DB trigger (handle_new_user) can use it
-  const { data, error } = await supabase.auth.signUp({
+  // Create the auth user via Admin API to bypass free-tier rate limits.
+  // We pass username in user_metadata so the DB trigger (handle_new_user) can use it.
+  const { data, error } = await supabase.auth.admin.createUser({
     email,
     password,
-    options: {
-      data: { username }
-    }
+    email_confirm: true, // Auto-confirm email so they can log in instantly
+    user_metadata: { username }
   });
 
   if (error) return res.status(400).json({ error: error.message });
 
-  // Auto-confirm the email so users can log in immediately without waiting
-  // for a verification email (useful in dev/demo). This uses the admin SDK.
-  if (data.user?.id) {
-    try {
-      await supabase.auth.admin.updateUserById(data.user.id, {
-        email_confirm: true
-      });
-    } catch (confirmErr) {
-      console.warn('[Auth] Could not auto-confirm email:', confirmErr.message);
-      // Non-fatal — user can still verify via email
-    }
-  }
 
   res.status(201).json({
     message: 'Registration successful! You can now log in.',
@@ -180,6 +166,42 @@ router.post('/logout', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (token) await supabase.auth.admin.signOut(token);
   res.json({ message: 'Logged out successfully' });
+});
+
+// ── GET /api/auth/me ─────────────────────────────────────────────────────────
+// Returns the user profile for the given Supabase access token.
+// Uses the service key to bypass RLS.
+router.get('/me', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token' });
+
+  try {
+    const { data: { user: authUser }, error: authErr } = await supabase.auth.getUser(token);
+    if (authErr || !authUser) return res.status(401).json({ error: 'Invalid token' });
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
+
+    if (!profile) {
+      // Auto-heal: create profile if trigger failed
+      const username = authUser.user_metadata?.username || authUser.email.split('@')[0];
+      const { data: newProfile } = await supabase.from('users').upsert({
+        id: authUser.id,
+        email: authUser.email,
+        username,
+        role: 'user',
+        coins: 1000
+      }).select().single();
+      return res.json(newProfile || { id: authUser.id, email: authUser.email, username, role: 'user', coins: 0 });
+    }
+
+    res.json(profile);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
 });
 
 module.exports = router;

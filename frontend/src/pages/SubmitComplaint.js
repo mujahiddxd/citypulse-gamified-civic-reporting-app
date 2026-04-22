@@ -77,7 +77,7 @@ const SubmitComplaint = () => {
         const scoreRes = await api.get(`/complaints/area-score?area=${encodeURIComponent(city)}`);
         setAreaScore({ ...scoreRes.data, aqi: currentAqi });
       } else {
-        setAreaScore(currentAqi !== null ? { score: 'N/A', garbageCount: 0, crowdCount: 0, aqi: currentAqi } : null);
+        setAreaScore(currentAqi !== null ? { score: 'N/A', garbageCount: 0, aqi: currentAqi } : null);
       }
 
     } catch (err) {
@@ -239,11 +239,6 @@ const SubmitComplaint = () => {
                     <div style={{ fontSize: '0.7rem', color: '#6b7280', textTransform: 'uppercase', fontWeight: '800' }}>Garbage Reports</div>
                     <div style={{ fontSize: '1.1rem', fontWeight: '800' }}>{areaScore.garbageCount}</div>
                   </div>
-                  <div style={{ width: '2px', background: '#e2e8f0' }}></div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '0.7rem', color: '#6b7280', textTransform: 'uppercase', fontWeight: '800' }}>Crowd Reports</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '800' }}>{areaScore.crowdCount}</div>
-                  </div>
                   {areaScore.aqi !== undefined && areaScore.aqi !== null && (
                     <>
                       <div style={{ width: '2px', background: '#e2e8f0' }}></div>
@@ -271,7 +266,6 @@ const SubmitComplaint = () => {
                   <select className="form-select" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}
                     style={{ background: 'white', borderColor: '#d1d5db', color: '#111' }}>
                     <option value="Garbage">🗑️ Garbage</option>
-                    <option value="Crowd Management">👥 Crowd Management</option>
                   </select>
                 </div>
 

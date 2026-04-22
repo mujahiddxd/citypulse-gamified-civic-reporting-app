@@ -5,6 +5,7 @@ import Select from 'react-select';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../utils/api';
+import { SkeletonHeatmap } from '../components/ui/SkeletonLoader';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -107,6 +108,7 @@ const MapController = ({ viewState }) => {
 const HeatmapPage = () => {
   const [points, setPoints] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [filters, setFilters] = useState({ type: '', severity: '', from: '', to: '' });
   const [viewMode, setViewMode] = useState('heatmap'); // 'heatmap' | 'markers' | 'sectors'
   const [mapCenter, setMapCenter] = useState({ lat: 19.076, lng: 72.877, zoom: 12 });
@@ -142,6 +144,7 @@ const HeatmapPage = () => {
 
   const fetchHeatmap = async () => {
     setLoading(true);
+    const start = Date.now();
     try {
       const params = new URLSearchParams();
       if (filters.type) params.append('type', filters.type);
@@ -154,11 +157,15 @@ const HeatmapPage = () => {
     } catch (err) {
       console.error(err);
     } finally {
+      const elapsed = Date.now() - start;
+        
       setLoading(false);
+      setInitialLoad(false);
     }
   };
 
   useEffect(() => { fetchHeatmap(); }, []);
+
 
   // Compute analytics
   const analytics = useMemo(() => {
@@ -179,15 +186,13 @@ const HeatmapPage = () => {
           count: 0,
           lat: p.lat,
           lng: p.lng,
-          garbage: 0,
-          crowd: 0
+          garbage: 0
         };
       }
       areas[areaName].deduction += deduction;
       areas[areaName].count += 1;
 
       if (p.type === 'Garbage') areas[areaName].garbage++;
-      if (p.type === 'Crowd Management') areas[areaName].crowd++;
     });
 
     const averageDeduction = totalDeductions / Math.max(1, (points.length * 0.5));
@@ -220,6 +225,9 @@ const HeatmapPage = () => {
 
   // Derive visible points by filtering based on severity checkboxes
   const visiblePoints = points.filter(p => severityFilters[p.severity] !== false);
+
+  // Show skeleton on initial load (after all hooks)
+  if (initialLoad) return <SkeletonHeatmap />;
 
   const handleSelectArea = (option) => {
     setSelectedArea(option);
@@ -308,7 +316,6 @@ const HeatmapPage = () => {
         <select className="form-select" value={filters.type} onChange={e => setFilters(p => ({ ...p, type: e.target.value }))} style={{ width: 'auto', padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}>
           <option value="">All Types</option>
           <option value="Garbage">🗑️ Garbage</option>
-          <option value="Crowd Management">👥 Crowd</option>
         </select>
 
         <button className="btn btn-primary btn-sm" onClick={fetchHeatmap} disabled={loading} style={{ marginLeft: 'auto' }}>
@@ -494,10 +501,6 @@ const HeatmapPage = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span>Garbage Reports</span>
                           <strong style={{ color: '#111' }}>{sector.garbage}/10</strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Crowd Reports</span>
-                          <strong style={{ color: '#111' }}>{sector.crowd}/10</strong>
                         </div>
                       </div>
 

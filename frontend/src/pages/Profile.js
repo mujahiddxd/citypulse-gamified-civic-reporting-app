@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../utils/api';
+import { SkeletonProfile } from '../components/ui/SkeletonLoader';
 
 const Profile = () => {
   const { username } = useParams();
@@ -10,12 +11,24 @@ const Profile = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get(`/profile/${username}`)
-      .then(r => { setProfile(r.data); setLoading(false); })
-      .catch(() => { setError('User not found'); setLoading(false); });
+    const fetchProfile = async () => {
+      setLoading(true);
+      const start = Date.now();
+      try {
+        const { data } = await api.get(`/profile/${username}`);
+        setProfile(data);
+      } catch (err) {
+        setError('User not found');
+      } finally {
+        const elapsed = Date.now() - start;
+        if (elapsed < 2000) await new Promise(r => setTimeout(r, 2000 - elapsed));
+        setLoading(false);
+      }
+    };
+    fetchProfile();
   }, [username]);
 
-  if (loading) return <div className="page" style={{ textAlign: 'center', paddingTop: '4rem' }}>Loading...</div>;
+  if (loading) return <SkeletonProfile />;
   if (error) return <div className="page" style={{ textAlign: 'center', paddingTop: '4rem', color: 'var(--text-muted)' }}>{error}</div>;
   if (!profile) return null;
 

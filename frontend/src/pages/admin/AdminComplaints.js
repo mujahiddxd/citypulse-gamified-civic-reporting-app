@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import AdminLayout from '../../components/admin/AdminLayout';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { SkeletonAdminTable } from '../../components/ui/SkeletonLoader';
 
 // Fix leaflet icon paths
 delete L.Icon.Default.prototype._getIconUrl;
@@ -38,6 +39,7 @@ const AdminComplaints = () => {
 
   const fetchComplaints = async () => {
     setLoading(true);
+    const start = Date.now();
     try {
       const { data } = await api.get(`/admin/complaints?status=${filter}&page=${page}&limit=15`);
       setComplaints(data.data);
@@ -45,6 +47,8 @@ const AdminComplaints = () => {
     } catch (err) {
       console.error(err);
     } finally {
+      const elapsed = Date.now() - start;
+        
       setLoading(false);
     }
   };
@@ -73,7 +77,7 @@ const AdminComplaints = () => {
         <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: '2.2' }}>{total} total</span>
       </div>
 
-      {loading ? <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Loading...</div> : (
+      {loading ? <SkeletonAdminTable rows={8} cols={7} /> : (
         <div style={{ overflowX: 'auto' }}>
           <table className="table">
             <thead>

@@ -2,7 +2,7 @@
  * routes/complaints.js — Complaint Submission & Retrieval
  * --------------------------------------------------------
  * The core feature of GarbageMap: users submit geo-tagged reports
- * about garbage or crowd issues. This router handles reading and
+ * about garbage issues. This router handles reading and
  * creating complaint records.
  *
  * Routes (all under /api/complaints):
@@ -95,17 +95,15 @@ router.get('/area-score', async (req, res) => {
 
     // If no complaints exist, the area is pristine — return max score
     if (!data || data.length === 0) {
-      return res.json({ score: 5.0, totalReports: 0, garbageCount: 0, crowdCount: 0, message: 'Pristine Area!' });
+      return res.json({ score: 5.0, totalReports: 0, garbageCount: 0, message: 'Pristine Area!' });
     }
 
     // Tally complaints by type and deduct from score by severity
     let deduction = 0;
     let garbageCount = 0;
-    let crowdCount = 0;
 
     data.forEach(c => {
       if (c.type === 'Garbage') garbageCount++;
-      if (c.type === 'Crowd Management') crowdCount++;
 
       if (c.severity === 'High') deduction += 0.6;
       else if (c.severity === 'Medium') deduction += 0.3;
@@ -119,8 +117,7 @@ router.get('/area-score', async (req, res) => {
     res.json({
       score: score.toFixed(1), // Return as 1 decimal place string e.g. "3.4"
       totalReports: data.length,
-      garbageCount,
-      crowdCount
+      garbageCount
     });
 
   } catch (err) {
@@ -174,7 +171,7 @@ router.get('/:id', async (req, res) => {
 // then immediately awards 10 XP to the submitter via a Postgres RPC call.
 //
 // Body fields:
-//   type         — 'Garbage' or 'Crowd Management'
+//   type         — 'Garbage'
 //   description  — 10–1000 character description
 //   latitude     — decimal between -90 and 90
 //   longitude    — decimal between -180 and 180
@@ -184,7 +181,7 @@ router.get('/:id', async (req, res) => {
 //   is_anonymous — boolean, hide username on the public feed
 //   additional_info — optional extra notes
 router.post('/', authenticate, [
-  body('type').isIn(['Garbage', 'Crowd Management']).withMessage('Invalid type'),
+  body('type').isIn(['Garbage']).withMessage('Invalid type'),
   body('description').trim().isLength({ min: 10, max: 1000 }).withMessage('Description must be 10-1000 characters'),
   body('latitude').isFloat({ min: -90, max: 90 }).withMessage('Valid latitude required'),
   body('longitude').isFloat({ min: -180, max: 180 }).withMessage('Valid longitude required'),

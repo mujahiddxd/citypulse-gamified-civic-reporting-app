@@ -10,7 +10,7 @@
  * Route: GET /api/heatmap
  *
  * Query params (all optional):
- *   type     — 'Garbage' | 'Crowd Management'
+ *   type     — 'Garbage'
  *   severity — 'Low' | 'Medium' | 'High'
  *   status   — defaults to 'Approved' if not provided
  *   from     — ISO date string (filter by created_at >=)

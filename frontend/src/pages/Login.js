@@ -26,33 +26,23 @@ export const Login = () => {
     setLoading(true);
     setError('');
 
-    const { data, error: signInError } = await supabase.auth.signInWithPassword(form);
-
-    if (signInError) {
-      setLoading(false);
-      setError(signInError.message || 'Invalid email or password');
-      return;
-    }
-
-    // Directly fetch role to decide where to navigate — don't wait for AuthContext chain
     try {
-      const { data: profile } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', data.user.id)
-        .single();
+      const { error: signInError } = await supabase.auth.signInWithPassword(form);
 
-      const role = profile?.role || 'user';
-      if (role === 'admin' || role === 'officer') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
+      if (signInError) {
+        setError(signInError.message || 'Invalid email or password');
+        setLoading(false);
+        return;
       }
-    } catch {
-      // Fallback — just go to dashboard
-      navigate('/dashboard');
+
+      // Sign-in succeeded! AuthContext onAuthStateChange will fire,
+      // load the user profile, and the useEffect above will auto-navigate.
+      // Safety: if AuthContext hasn't redirected within 6s, force it.
+      setTimeout(() => navigate('/dashboard'), 6000);
+    } catch (err) {
+      setError('Something went wrong. Please try again.');
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

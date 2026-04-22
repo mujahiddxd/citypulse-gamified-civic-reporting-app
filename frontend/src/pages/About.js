@@ -53,7 +53,7 @@ const FAQS = [
     },
     {
         q: 'What types of issues can I report?',
-        a: 'Currently two categories: Garbage (uncollected waste, illegal dumping, overflowing bins) and Crowd Management (dangerous overcrowding, public safety concerns at events/markets).',
+        a: 'Currently one category: Garbage (uncollected waste, illegal dumping, overflowing bins).',
     },
     {
         q: 'How is my location data used?',
@@ -133,7 +133,18 @@ const FAQItem = ({ q, a, index }) => {
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
+import { SkeletonAbout } from '../components/ui/SkeletonLoader';
+
 const About = () => {
+    const [initLoading, setInitLoading] = useState(true);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => setInitLoading(false), 2000);
+        return () => clearTimeout(timer);
+    }, []);
+
+    if (initLoading) return <SkeletonAbout />;
+
     return (
         <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
 

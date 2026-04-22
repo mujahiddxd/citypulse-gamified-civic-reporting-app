@@ -117,25 +117,26 @@ const Navbar = () => {
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       style={{
                         position: 'absolute', top: 'calc(100% + 10px)', right: 0,
-                        width: '200px', background: 'var(--bg-elevated)',
+                        width: '200px', display: 'flex', flexDirection: 'column',
+                        background: 'var(--bg-elevated)',
                         backdropFilter: 'var(--glass-blur)',
                         border: '1px solid var(--border-strong)',
                         borderRadius: '16px', padding: '0.5rem',
                         boxShadow: 'var(--shadow)', zIndex: 1100
                       }}
                     >
-                      <Link to={`/profile/${user.username}`} onClick={() => setShowProfileMenu(false)} className="btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', padding: '0.75rem' }}>
-                        👤 View Profile
+                      <Link to={`/profile/${user.username}`} onClick={() => setShowProfileMenu(false)} className="btn-ghost" style={{ textDecoration: 'none', color: 'var(--text-primary)', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '0.75rem', gap: '0.5rem' }}>
+                        <span>👤</span> <span>View Profile</span>
                       </Link>
-                      <Link to="/dashboard" onClick={() => setShowProfileMenu(false)} className="btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', padding: '0.75rem' }}>
-                        📊 Dashboard
+                      <Link to="/dashboard" onClick={() => setShowProfileMenu(false)} className="btn-ghost" style={{ textDecoration: 'none', color: 'var(--text-primary)', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '0.75rem', gap: '0.5rem' }}>
+                        <span>📊</span> <span>Dashboard</span>
                       </Link>
-                      <Link to="/submit" onClick={() => setShowProfileMenu(false)} className="btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', padding: '0.75rem' }}>
-                        📢 New Report
+                      <Link to="/submit" onClick={() => setShowProfileMenu(false)} className="btn-ghost" style={{ textDecoration: 'none', color: 'var(--text-primary)', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '0.75rem', gap: '0.5rem' }}>
+                        <span>📢</span> <span>New Report</span>
                       </Link>
                       <div style={{ height: '1px', background: 'var(--border)', margin: '0.5rem 0' }} />
-                      <button onClick={handleLogout} className="btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', color: 'var(--danger)', padding: '0.75rem' }}>
-                        🚪 Logout
+                      <button onClick={handleLogout} className="btn-ghost" style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', fontSize: '1rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', color: 'var(--danger)', padding: '0.75rem', gap: '0.5rem' }}>
+                        <span>🚪</span> <span>Logout</span>
                       </button>
                     </motion.div>
                   )}

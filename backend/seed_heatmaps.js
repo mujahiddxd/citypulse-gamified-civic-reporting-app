@@ -31,21 +31,6 @@ async function seed() {
 
     if (gErr) console.error('Error inserting garbage:', gErr);
 
-    console.log('Inserting Crowd Management complaint...');
-    const { error: cErr } = await supabase.from('complaints').insert({
-        user_id: userId,
-        type: 'Crowd Management',
-        severity: 'Medium',
-        description: 'Heavy crowding near the station exit.',
-        latitude: 19.0650,
-        longitude: 72.8880,
-        area_name: 'Kurla East, Mumbai',
-        image_url: null,
-        status: 'Approved'
-    });
-
-    if (cErr) console.error('Error inserting crowd:', cErr);
-
     console.log('Seeding complete. Heatmap should now show both markers.');
 }
 

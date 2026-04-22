@@ -87,72 +87,36 @@ export const AuthProvider = ({ children }) => {
    * it auto-creates (heals) a minimal profile so the app doesn't break.
    */
   const fetchProfile = async (userId, token, authUser = null, retryCount = 0) => {
-    // Skip if we already fetched this exact user+token combination (prevents double fetches
-    // on re-renders or concurrent auth state changes)
     if (profileFetchedRef.current === `${userId}_${token}`) return;
 
     try {
-      console.log(`[Auth] Fetching profile for ${userId}...`);
+      console.log(`[Auth] Fetching profile via backend API...`);
 
-      // Use withTimeout to cap the DB call at 5 seconds
-      const { data: profile, error: profileError } = await withTimeout(
-        supabase.from('users').select('*').eq('id', userId).single(),
-        5000
-      ).catch(e => ({ error: e }));
+      const res = await withTimeout(
+        fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        4000
+      );
 
-      if (profileError) {
-        // If Supabase throws a "Lock" or timeout error, retry with exponential backoff
-        if ((profileError.message?.includes('Lock') || profileError.message?.includes('timed out')) && retryCount < 2) {
-          console.warn(`[Auth] Conflict during profile fetch, retrying (${retryCount + 1})...`);
-          await new Promise(r => setTimeout(r, 500 * (retryCount + 1))); // Wait 500ms, then 1s
-          return fetchProfile(userId, token, authUser, retryCount + 1);
-        }
-        throw profileError;
-      }
+      if (!res.ok) throw new Error(`API returned ${res.status}`);
+      const profile = await res.json();
 
-      if (profile) {
-        console.log(`[Auth] Success! Profile loaded for ${profile.username}`);
+      if (profile && profile.id) {
+        console.log(`[Auth] Profile loaded for ${profile.username}`);
         profileFetchedRef.current = `${userId}_${token}`;
-        localStorage.setItem('access_token', token); // Save token for api.js interceptor
+        localStorage.setItem('access_token', token);
         setUser({ ...profile, access_token: token });
       } else {
-        throw new Error('No profile data returned');
+        throw new Error('No profile data');
       }
     } catch (err) {
-      console.warn(`[Auth] Profile fetch failed: ${err.message}. Attempting auto-heal...`);
+      console.warn(`[Auth] Profile fetch failed: ${err.message}`);
 
-      try {
-        // AUTO-HEAL: If no profile exists in public.users, create one.
-        // This handles cases where the DB trigger (handle_new_user) failed silently.
-        const userToHeal = authUser || (await supabase.auth.getUser()).data.user;
-        if (userToHeal) {
-          const defaultUsername = userToHeal.user_metadata?.username || userToHeal.email.split('@')[0];
-          console.log(`[Auth] Auto-healing profile with username: ${defaultUsername}`);
-
-          // upsert() = insert if not exists, update if exists (idempotent)
-          const { data: newProfile, error: insertError } = await supabase.from('users').upsert({
-            id: userId,
-            email: userToHeal.email,
-            username: defaultUsername,
-            role: userToHeal.email === 'admin@citypulse.com' ? 'admin' : 'user',
-            coins: 1000 // Give starter coins for a better first experience
-          }).select().single();
-
-          if (insertError) throw insertError;
-
-          if (newProfile) {
-            profileFetchedRef.current = `${userId}_${token}`;
-            setUser({ ...newProfile, access_token: token });
-            return;
-          }
-        }
-      } catch (healErr) {
-        console.error('[Auth] Auto-heal failed:', healErr.message);
-      }
-
-      // Final fallback: set a minimal user object so the app can still render
-      // (user will have limited functionality but won't see a broken screen)
-      console.warn('[Auth] Falling back to generic user profile');
+      // Fallback: set minimal user so app doesn't break
+      console.warn('[Auth] Using fallback profile');
+      profileFetchedRef.current = `${userId}_${token}`;
+      localStorage.setItem('access_token', token);
       setUser({ id: userId, role: 'user', username: 'User', access_token: token, coins: 0 });
     }
   };
@@ -170,7 +134,7 @@ export const AuthProvider = ({ children }) => {
         console.error('[Auth] Initialization timed out - forcing ready state');
         setLoading(false);
       }
-    }, 10000);
+    }, 5000);
 
     const init = async () => {
       if (initRunRef.current) return; // Prevent double-initialization
@@ -181,14 +145,14 @@ export const AuthProvider = ({ children }) => {
 
         // getSession() checks localStorage for a cached Supabase session.
         // Can throw "Lock broken" error if multiple tabs compete for storage.
-        const { data: { session: s } = {}, error } = await withTimeout(supabase.auth.getSession(), 3000)
+        const { data: { session: s } = {}, error } = await withTimeout(supabase.auth.getSession(), 4000)
           .catch(e => ({ error: e }));
 
         if (error) {
           if (error.message?.includes('Lock') || error.message?.includes('timed out')) {
             // Graceful recovery: try getUser() directly (doesn't need the lock)
             console.warn('[Auth] Initialization conflict or timeout, attempting graceful recovery...');
-            const { data: { user: u } = {} } = await withTimeout(supabase.auth.getUser(), 3000).catch(() => ({}));
+            const { data: { user: u } = {} } = await withTimeout(supabase.auth.getUser(), 4000).catch(() => ({}));
             if (u) {
               console.log('[Auth] Graceful recovery successful for', u.email);
               await fetchProfile(u.id, localStorage.getItem('access_token'), u);
@@ -227,9 +191,14 @@ export const AuthProvider = ({ children }) => {
 
         if (newSession?.user) {
           setSession(newSession);
-          if (mounted) setLoading(true); // Show loading while we fetch the profile
-          await fetchProfile(newSession.user.id, newSession.access_token, newSession.user);
-          if (mounted) setLoading(false);
+          // profileFetchedRef prevents duplicate work if init() already loaded this user
+          if (profileFetchedRef.current !== `${newSession.user.id}_${newSession.access_token}`) {
+            if (mounted) setLoading(true);
+            await fetchProfile(newSession.user.id, newSession.access_token, newSession.user);
+            if (mounted) setLoading(false);
+          } else {
+            if (mounted) setLoading(false);
+          }
         } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
           // Clear all auth state on logout
           console.log('[Auth] User signed out');

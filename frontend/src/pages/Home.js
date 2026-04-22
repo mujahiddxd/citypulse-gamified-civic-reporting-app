@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
+import { SkeletonHome } from '../components/ui/SkeletonLoader';
 
 const FEATURES = [
   { icon: '📍', title: 'Report Issues', desc: 'Drop a pin, snap a photo, describe the problem. Takes 60 seconds.' },
@@ -16,23 +17,37 @@ const FEATURES = [
 const Home = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState({ totalComplaints: 0, approved: 0, totalUsers: 0, pending: 0 });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch real stats from the public leaderboard + complaints
-    Promise.all([
-      api.get('/leaderboard'),
-      api.get('/complaints?limit=1000'),
-    ]).then(([lb, complaints]) => {
-      const total = complaints.data?.length || 0;
-      const approved = complaints.data?.filter(c => c.status === 'Approved').length || 0;
-      setStats({
-        totalComplaints: total,
-        approved,
-        totalUsers: lb.data?.length || 0,
-        resolutionRate: total > 0 ? Math.round((approved / total) * 100) : 0,
-      });
-    }).catch(() => {});
+    const fetchStats = async () => {
+      setLoading(true);
+      const start = Date.now();
+      try {
+        const [lb, complaints] = await Promise.all([
+          api.get('/leaderboard'),
+          api.get('/complaints?limit=1000'),
+        ]);
+        const total = complaints.data?.length || 0;
+        const approved = complaints.data?.filter(c => c.status === 'Approved').length || 0;
+        setStats({
+          totalComplaints: total,
+          approved,
+          totalUsers: lb.data?.length || 0,
+          resolutionRate: total > 0 ? Math.round((approved / total) * 100) : 0,
+        });
+      } catch (err) {
+        console.error('Home stats fetch error');
+      } finally {
+        const elapsed = Date.now() - start;
+        if (elapsed < 2000) await new Promise(r => setTimeout(r, 2000 - elapsed));
+        setLoading(false);
+      }
+    };
+    fetchStats();
   }, []);
+
+  if (loading) return <SkeletonHome />;
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
@@ -81,7 +96,7 @@ const Home = () => {
             fontSize: '1.15rem', color: '#4B5563',
             maxWidth: '520px', margin: '0 auto 2.5rem', lineHeight: '1.75',
           }}>
-            Turn civic frustration into action. Report garbage and crowd issues, earn XP, and make your city cleaner.
+            Turn civic frustration into action. Report garbage issues, earn XP, and make your city cleaner.
           </p>
 
           <div style={{ display: 'flex', gap: '0.875rem', justifyContent: 'center', flexWrap: 'wrap' }}>

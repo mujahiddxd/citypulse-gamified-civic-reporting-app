@@ -41,7 +41,7 @@
     font-family: var(--font-body);
     font-size: 1rem;
     background: #ffffff;
-    color: var(--text-primary);
+    color: #111111;
     transition: all 0.2s ease;
     box-shadow: inset 2px 2px 0px rgba(0, 0, 0, 0.05);
 }
@@ -54,6 +54,6 @@
 }
 
 .form-input::placeholder {
-    color: var(--text-muted);
+    color: #888888;
     font-weight: 500;
 }

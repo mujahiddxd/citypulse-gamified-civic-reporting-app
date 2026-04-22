@@ -4,6 +4,7 @@ import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Link } from 'react-router-dom';
+import { SkeletonStore } from '../components/ui/SkeletonLoader';
 import '../styles/Store.css';
 
 const STORE_ITEMS = [
@@ -38,6 +39,26 @@ const STORE_ITEMS = [
         rarity: 'Rare'
     },
     {
+        id: 'theme-sunset',
+        name: 'Sunset Smog',
+        type: 'theme',
+        value: 'sunset',
+        price: 500,
+        icon: '🌅',
+        description: 'Warm amber and smoky purple gradients inspired by urban dusk.',
+        rarity: 'Epic'
+    },
+    {
+        id: 'theme-midnight',
+        name: 'Midnight Patrol',
+        type: 'theme',
+        value: 'midnight',
+        price: 600,
+        icon: '🌙',
+        description: 'Deep indigo and silver tones for late-night city cleanup crews.',
+        rarity: 'Epic'
+    },
+    {
         id: 'border-neon',
         name: 'Neon Red Aura',
         type: 'border',
@@ -46,6 +67,26 @@ const STORE_ITEMS = [
         icon: '🔥',
         description: 'A legendary glowing fire aura that surrounds your profile.',
         rarity: 'Epic'
+    },
+    {
+        id: 'border-eco-shield',
+        name: 'Eco Shield',
+        type: 'border',
+        value: 'eco-shield',
+        price: 250,
+        icon: '🛡️',
+        description: 'A glowing green protective ring — badge of a true environmentalist.',
+        rarity: 'Rare'
+    },
+    {
+        id: 'border-recycler',
+        name: 'Recycler Ring',
+        type: 'border',
+        value: 'recycler-ring',
+        price: 200,
+        icon: '♻️',
+        description: 'An animated recycling symbol border for dedicated waste reporters.',
+        rarity: 'Uncommon'
     },
     {
         id: 'title-champion',
@@ -58,6 +99,26 @@ const STORE_ITEMS = [
         rarity: 'Legendary'
     },
     {
+        id: 'title-waste-warrior',
+        name: 'Waste Warrior',
+        type: 'title',
+        value: 'waste-warrior',
+        price: 300,
+        icon: '⚔️',
+        description: 'For those who fight the war on waste, one report at a time.',
+        rarity: 'Rare'
+    },
+    {
+        id: 'title-green-guardian',
+        name: 'Green Guardian',
+        type: 'title',
+        value: 'green-guardian',
+        price: 400,
+        icon: '🌿',
+        description: 'Protector of public spaces — awarded to consistent reporters.',
+        rarity: 'Epic'
+    },
+    {
         id: 'badge-gold',
         name: 'Golden Shimmer',
         type: 'badge',
@@ -67,6 +128,26 @@ const STORE_ITEMS = [
         description: 'A shimmering gold badge that stands out everywhere.',
         rarity: 'Uncommon'
     },
+    {
+        id: 'badge-cleanup-crew',
+        name: 'Cleanup Crew',
+        type: 'badge',
+        value: 'cleanup-crew',
+        price: 75,
+        icon: '🧹',
+        description: 'Show everyone you are part of the active cleanup movement.',
+        rarity: 'Common'
+    },
+    {
+        id: 'badge-eco-star',
+        name: 'Eco Star',
+        type: 'badge',
+        value: 'eco-star',
+        price: 200,
+        icon: '⭐',
+        description: 'A verified eco-warrior star for 10+ approved garbage reports.',
+        rarity: 'Rare'
+    },
 ];
 
 const Store = () => {
@@ -75,6 +156,12 @@ const Store = () => {
     const [loading, setLoading] = useState(false);
     const [feedback, setFeedback] = useState({ type: '', msg: '' });
     const [previewItem, setPreviewItem] = useState(null);
+    const [initLoading, setInitLoading] = useState(true);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => setInitLoading(false), 2000);
+        return () => clearTimeout(timer);
+    }, []);
 
     const handleAction = async (item) => {
         const isOwned = user?.inventory?.includes(item.name);
@@ -111,7 +198,7 @@ const Store = () => {
         setTimeout(() => setFeedback({ type: '', msg: '' }), 3000);
     };
 
-    if (authLoading) return <div className="loading-screen">Opening Vault...</div>;
+    if (authLoading || initLoading) return <SkeletonStore />;
 
     return (
         <div className="page" style={{ maxWidth: '1200px' }}>

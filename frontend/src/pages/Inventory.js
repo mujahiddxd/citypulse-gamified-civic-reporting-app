@@ -3,15 +3,23 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { SkeletonInventory } from '../components/ui/SkeletonLoader';
 
-// Same item definitions as the store
 const ALL_ITEMS = [
     { id: 'theme-cyberpunk', name: 'Cyberpunk 2077', type: 'theme', value: 'cyberpunk', price: 800, icon: '🌃', rarity: 'Legendary' },
     { id: 'theme-ocean', name: 'Deep Sea Ocean', type: 'theme', value: 'ocean', price: 350, icon: '🌊', rarity: 'Rare' },
     { id: 'theme-emerald', name: 'Emerald Forest', type: 'theme', value: 'emerald', price: 350, icon: '🌲', rarity: 'Rare' },
+    { id: 'theme-sunset', name: 'Sunset Smog', type: 'theme', value: 'sunset', price: 500, icon: '🌅', rarity: 'Epic' },
+    { id: 'theme-midnight', name: 'Midnight Patrol', type: 'theme', value: 'midnight', price: 600, icon: '🌙', rarity: 'Epic' },
     { id: 'border-neon', name: 'Neon Red Aura', type: 'border', value: 'neon-aura', price: 150, icon: '🔥', rarity: 'Epic' },
+    { id: 'border-eco-shield', name: 'Eco Shield', type: 'border', value: 'eco-shield', price: 250, icon: '🛡️', rarity: 'Rare' },
+    { id: 'border-recycler', name: 'Recycler Ring', type: 'border', value: 'recycler-ring', price: 200, icon: '♻️', rarity: 'Uncommon' },
     { id: 'title-champion', name: 'City Champion', type: 'title', value: 'champion-title', price: 500, icon: '👑', rarity: 'Legendary' },
+    { id: 'title-waste-warrior', name: 'Waste Warrior', type: 'title', value: 'waste-warrior', price: 300, icon: '⚔️', rarity: 'Rare' },
+    { id: 'title-green-guardian', name: 'Green Guardian', type: 'title', value: 'green-guardian', price: 400, icon: '🌿', rarity: 'Epic' },
     { id: 'badge-gold', name: 'Golden Shimmer', type: 'badge', value: 'golden-checkmark', price: 100, icon: '🌟', rarity: 'Uncommon' },
+    { id: 'badge-cleanup-crew', name: 'Cleanup Crew', type: 'badge', value: 'cleanup-crew', price: 75, icon: '🧹', rarity: 'Common' },
+    { id: 'badge-eco-star', name: 'Eco Star', type: 'badge', value: 'eco-star', price: 200, icon: '⭐', rarity: 'Rare' },
 ];
 
 const RARITY_COLORS = {
@@ -19,12 +27,21 @@ const RARITY_COLORS = {
     Epic: '#8b5cf6',
     Rare: '#3b82f6',
     Uncommon: '#22c55e',
+    Common: '#94a3b8',
 };
 
 const Inventory = () => {
-    const { user, setUser } = useAuth();
+    const { user, setUser, loading: authLoading } = useAuth();
     const { theme, equippedBorder, equippedTitle, equipItem, unequipItem } = useTheme();
     const [feedback, setFeedback] = React.useState('');
+    const [initLoading, setInitLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => setInitLoading(false), 2000);
+        return () => clearTimeout(timer);
+    }, []);
+
+    if (authLoading || initLoading) return <SkeletonInventory />;
 
     const inventory = user?.inventory || [];
 

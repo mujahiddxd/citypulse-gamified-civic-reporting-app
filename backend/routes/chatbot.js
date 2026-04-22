@@ -81,7 +81,7 @@ router.post('/', authenticate, async (req, res) => {
           model: 'gpt-3.5-turbo',
           messages: [
             // System message gives GPT context about the app
-            { role: 'system', content: 'You are a helpful assistant for CityPulse, a civic reporting platform where users report garbage and crowd issues, earn XP, and level up. Be concise and helpful.' },
+            { role: 'system', content: 'You are a helpful assistant for CityPulse, a civic reporting platform where users report garbage issues, earn XP, and level up. Be concise and helpful.' },
             // Include the last 6 messages of history for conversational context
             ...history.slice(-6),
             { role: 'user', content: message }

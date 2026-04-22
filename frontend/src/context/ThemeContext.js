@@ -62,20 +62,29 @@ export const ThemeProvider = ({ children }) => {
     // and override the localStorage-based state with the DB values.
     // This ensures multi-device consistency.
     useEffect(() => {
+        if (user === null) {
+            // User logged out — reset everything to defaults
+            setTheme('crimson');
+            setEquippedBorder(null);
+            setEquippedTitle(null);
+            localStorage.removeItem('theme');
+            localStorage.removeItem('equipped_border');
+            localStorage.removeItem('equipped_title');
+            return;
+        }
+
         if (user?.inventory) {
             const inventory = user.inventory;
 
-            // Find tags by prefix and extract the value after the ":"
             const dbTheme = inventory.find(i => i.startsWith('EQUIPPED_THEME:'))?.split(':')[1];
             const dbBorder = inventory.find(i => i.startsWith('EQUIPPED_BORDER:'))?.split(':')[1];
             const dbTitle = inventory.find(i => i.startsWith('EQUIPPED_TITLE:'))?.split(':')[1];
 
-            // Only update if the DB has something (DB wins over localStorage)
             if (dbTheme) setTheme(dbTheme);
             if (dbBorder) setEquippedBorder(dbBorder);
             if (dbTitle) setEquippedTitle(dbTitle);
         }
-    }, [user]); // Re-run whenever the user object changes
+    }, [user]);
 
     // ── Apply theme to the DOM ─────────────────────────────────────────────────
     // CSS listens to [data-theme="forest"] { --primary-color: green; ... }

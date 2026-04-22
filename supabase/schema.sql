@@ -26,7 +26,7 @@ CREATE TABLE public.users (
 CREATE TABLE public.complaints (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
-  type TEXT NOT NULL CHECK (type IN ('Garbage', 'Crowd Management')),
+  type TEXT NOT NULL CHECK (type IN ('Garbage')),
   description TEXT NOT NULL,
   image_url TEXT,
   latitude DOUBLE PRECISION NOT NULL,
@@ -141,8 +141,7 @@ INSERT INTO public.badges (name, description, xp_required, icon, condition_type,
   ('5 Reports', 'Had 5 complaints approved', 0, '🏅', 'approved_count', 5),
   ('10 Reports', 'Had 10 complaints approved', 0, '🥇', 'approved_count', 10),
   ('Cleanliness Champion', 'Earned 500 XP', 500, '🧹', 'xp', 500),
-  ('Crowd Controller', 'Submitted 5 Crowd Management reports', 0, '👮', 'type_count', 5),
-  ('Community Hero', 'Earned 1000 XP', 1000, '🦸', 'xp', 1000),
+  ('Civic Leader', 'Reach 500 XP to become a Civic Leader', 500, '👑', 'xp', NULL),
   ('Urban Guardian', 'Had 25 complaints approved', 0, '🛡️', 'approved_count', 25),
   ('City Champion', 'Earned 5000 XP', 5000, '🏆', 'xp', 5000);
 

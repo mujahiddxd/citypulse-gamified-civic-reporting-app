@@ -6,6 +6,7 @@ import api from '../utils/api';
 import { supabase } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import DailyRewardModal from '../components/ui/DailyRewardModal';
+import { SkeletonDashboard } from '../components/ui/SkeletonLoader';
 import '../styles/Dashboard.css';
 
 const StatusBadge = ({ status }) => (
@@ -55,6 +56,8 @@ const Dashboard = () => {
   };
 
   const fetchData = async () => {
+    setLoading(true);
+    const startTimer = Date.now();
     try {
       const [complaintsRes, badgesRes, xpRes, meRes] = await Promise.all([
         api.get('/complaints/my'),
@@ -69,6 +72,8 @@ const Dashboard = () => {
     } catch (err) {
       console.error(err);
     } finally {
+      const elapsed = Date.now() - startTimer;
+        
       setLoading(false);
     }
   };
@@ -92,7 +97,7 @@ const Dashboard = () => {
   const approved = complaints.filter(c => c.status === 'Approved').length;
   const pending = complaints.filter(c => c.status === 'Pending').length;
 
-  if (loading) return <div className="page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}>Loading...</div>;
+  if (loading) return <SkeletonDashboard />;
 
   return (
     <div className="page">

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import api from '../utils/api';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { SkeletonLeaderboard } from '../components/ui/SkeletonLoader';
 import '../styles/Leaderboard.css';
 
 const RANK_STYLES = {
@@ -15,14 +16,27 @@ const RANK_STYLES = {
 const Leaderboard = () => {
   const [data, setData] = useState({ season: null, leaderboard: [] });
   const [loading, setLoading] = useState(true);
-  const { authUser } = useAuth(); // Added useAuth hook
+  const { authUser, session } = useAuth();
 
   useEffect(() => {
-    api.get('/leaderboard').then(r => {
-      setData(r.data);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
+    if (session?.access_token) localStorage.setItem('access_token', session.access_token);
+    
+    const fetchLeaders = async () => {
+      setLoading(true);
+      const start = Date.now();
+      try {
+        const { data } = await api.get('/leaderboard');
+        setData(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        const elapsed = Date.now() - start;
+        if (elapsed < 2000) await new Promise(r => setTimeout(r, 2000 - elapsed));
+        setLoading(false);
+      }
+    };
+    fetchLeaders();
+  }, [session?.access_token]);
 
   const { season, leaderboard: leaders } = data;
 
@@ -42,7 +56,7 @@ const Leaderboard = () => {
       </motion.div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '4rem' }}>Loading leaderboard...</div>
+        <SkeletonLeaderboard />
       ) : (
         <div className="leaderboard-container">
           {(leaders || []).map((user, index) => {

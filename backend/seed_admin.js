@@ -18,12 +18,22 @@ async function seedAdmin() {
     console.log(`⏳ Attempting to create static admin account: ${adminEmail}...`);
 
     try {
+        // Find the user via the Admin API
+        const { data: listData } = await supabase.auth.admin.listUsers();
+        const existingAuthUser = listData?.users?.find(u => u.email === adminEmail);
+
+        if (existingAuthUser) {
+            console.log(`⚠️  User ${adminEmail} already exists. Deleting to avoid constraint conflicts...`);
+            await supabase.auth.admin.deleteUser(existingAuthUser.id);
+            console.log(`✅  User deleted successfully. Proceeding with fresh seed...`);
+        }
+
         // 1. Create the user using Supabase Admin API
         const { data: authData, error: authError } = await supabase.auth.admin.createUser({
             email: adminEmail,
             password: adminPassword,
             email_confirm: true,
-            user_metadata: { username: 'SuperAdmin' }
+            user_metadata: { username: 'SuperAdmin_' + Math.floor(Math.random() * 1000) } // Randomize username slightly to avoid trigger crash if row persists
         });
 
         if (authError) {

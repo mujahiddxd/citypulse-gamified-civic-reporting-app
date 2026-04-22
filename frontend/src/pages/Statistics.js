@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import api from '../utils/api';
+import { SkeletonStatistics } from '../components/ui/SkeletonLoader';
 
 const StatCard = ({ icon, label, value, suffix = '', color, delay }) => (
     <motion.div
@@ -42,23 +43,23 @@ const Statistics = () => {
 
     useEffect(() => {
         const fetch = async () => {
+            setLoading(true);
+            const start = Date.now();
             try {
                 const { data } = await api.get('/statistics');
                 setStats(data);
             } catch (err) {
                 console.error(err);
             } finally {
+                const elapsed = Date.now() - start;
+                if (elapsed < 2000) await new Promise(r => setTimeout(r, 2000 - elapsed));
                 setLoading(false);
             }
         };
         fetch();
     }, []);
 
-    if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', fontFamily: 'var(--font-display)', fontSize: '2rem' }}>
-            Loading Stats... 📊
-        </div>
-    );
+    if (loading) return <SkeletonStatistics />;
 
     if (!stats) return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '1rem' }}>

@@ -47,6 +47,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/ui/Navbar';
 import ChatbotWidget from './components/chatbot/ChatbotWidget';
+import { SkeletonDashboard } from './components/ui/SkeletonLoader';
 
 // ── Page Imports ──────────────────────────────────────────────────────────────
 import Home from './pages/Home';
@@ -80,7 +81,7 @@ import Inventory from './pages/Inventory';
 // Redirects to /login if no user session is found.
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  if (loading) return <div className="loading-screen">Loading...</div>;
+  if (loading) return <SkeletonDashboard />;
   return user ? children : <Navigate to="/login" />;
 };
 
@@ -103,7 +104,7 @@ const AdminRoute = ({ children }) => {
     });
   }, []);
 
-  if (checking) return <div className="loading-screen">Authenticating...</div>;
+  if (checking) return <SkeletonDashboard />;
   if (!valid) return <Navigate to="/admin-login" replace />;
   return children; // Token is valid → render the admin page
 };

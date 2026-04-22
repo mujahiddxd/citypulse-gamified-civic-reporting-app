@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { SkeletonPublicReports } from '../components/ui/SkeletonLoader';
 
 const severityColor = (s) =>
     s === 'High' ? '#ef4444' : s === 'Medium' ? '#f59e0b' : '#22c55e';
@@ -80,7 +81,7 @@ const ReportModal = ({ report, onClose, user }) => {
                                 background: report.type === 'Garbage' ? '#fef2f2' : '#eff6ff',
                                 color: report.type === 'Garbage' ? '#b91c1c' : '#1d4ed8',
                                 border: `1px solid ${report.type === 'Garbage' ? '#fecaca' : '#bfdbfe'}`,
-                            }}>{report.type === 'Garbage' ? '🗑️ Garbage' : '👥 Crowd Management'}</span>
+                            }}>{report.type === 'Garbage' ? '🗑️ Garbage' : 'Other'}</span>
                         </div>
 
                         {/* Heading */}
@@ -359,7 +360,7 @@ const ReportCard = ({ report, delay, onViewReport }) => {
                         background: report.type === 'Garbage' ? '#fef2f2' : '#eff6ff',
                         color: report.type === 'Garbage' ? '#b91c1c' : '#1d4ed8',
                         border: `1px solid ${report.type === 'Garbage' ? '#fecaca' : '#bfdbfe'}`,
-                    }}>{report.type === 'Garbage' ? '🗑️ Garbage' : '👥 Crowd'}</span>
+                    }}>{report.type === 'Garbage' ? '🗑️ Garbage' : 'Other'}</span>
                 </div>
 
                 {report.description && (
@@ -403,6 +404,7 @@ const PublicReports = () => {
 
     const fetchReports = useCallback(async () => {
         setLoading(true);
+        const start = Date.now();
         try {
             const params = new URLSearchParams();
             if (filter !== 'all') params.append('status', filter);
@@ -413,6 +415,8 @@ const PublicReports = () => {
             console.error(err);
             setReports([]);
         } finally {
+            const elapsed = Date.now() - start;
+            if (elapsed < 2000) await new Promise(r => setTimeout(r, 2000 - elapsed));
             setLoading(false);
         }
     }, [filter, typeFilter]);
@@ -467,7 +471,6 @@ const PublicReports = () => {
                             }}>
                             <option value="">All Types</option>
                             <option value="Garbage">🗑️ Garbage</option>
-                            <option value="Crowd Management">👥 Crowd</option>
                         </select>
                     </div>
                 </div>
@@ -480,9 +483,7 @@ const PublicReports = () => {
 
                 {/* Grid */}
                 {loading ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '30vh', fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: '#94a3b8' }}>
-                        Loading reports…
-                    </div>
+                    <SkeletonPublicReports />
                 ) : reports.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '5rem 0', color: '#94a3b8' }}>
                         <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🌱</div>
