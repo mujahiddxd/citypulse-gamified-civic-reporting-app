@@ -78,67 +78,146 @@ const AdminComplaints = () => {
       </div>
 
       {loading ? <SkeletonAdminTable rows={8} cols={7} /> : (
-        <div style={{ overflowX: 'auto' }}>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Type</th>
-                <th>Area</th>
-                <th>Severity</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+        <>
+          {complaints.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '4rem', color: '#94a3b8' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📭</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 800 }}>No complaints found</div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.25rem' }}>
               <AnimatePresence>
-                {complaints.map((c, i) => (
-                  <motion.tr key={c.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay: i * 0.02 }}>
-                    <td style={{ color: 'var(--text-primary)' }}>{c.users?.username || 'Anonymous'}</td>
-                    <td>{c.type}</td>
-                    <td>{c.area_name}</td>
-                    <td><span className={`badge badge-${c.severity.toLowerCase()}`}>{c.severity}</span></td>
-                    <td><span className={`badge badge-${c.status.toLowerCase()}`}>{c.status}</span></td>
-                    <td>{new Date(c.created_at).toLocaleDateString()}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {complaints.map((c, i) => {
+                  const severityColors = { Low: '#22c55e', Medium: '#f59e0b', High: '#ef4444' };
+                  const statusColors = { Pending: '#f59e0b', Approved: '#22c55e', Rejected: '#ef4444' };
+
+                  return (
+                    <motion.div
+                      key={c.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ delay: i * 0.03 }}
+                      style={{
+                        background: '#fff',
+                        borderRadius: '16px',
+                        border: '1px solid #e2e8f0',
+                        overflow: 'hidden',
+                        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                      }}
+                    >
+                      {/* Image */}
+                      <div style={{ position: 'relative', height: '180px', background: '#f1f5f9', overflow: 'hidden' }}>
+                        {c.image_url ? (
+                          <img
+                            src={c.image_url}
+                            alt="Report"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                          />
+                        ) : null}
+                        <div style={{
+                          display: c.image_url ? 'none' : 'flex',
+                          alignItems: 'center', justifyContent: 'center',
+                          height: '100%', fontSize: '3rem', color: '#cbd5e1',
+                          background: 'linear-gradient(135deg, #f1f5f9, #e2e8f0)',
+                        }}>🗑️</div>
+
+                        {/* Severity pill */}
+                        <span style={{
+                          position: 'absolute', top: '0.75rem', left: '0.75rem',
+                          background: severityColors[c.severity] || '#94a3b8',
+                          color: '#fff', fontSize: '0.65rem', fontWeight: 800,
+                          padding: '0.25rem 0.6rem', borderRadius: '999px',
+                          textTransform: 'uppercase', letterSpacing: '0.05em',
+                        }}>{c.severity}</span>
+
+                        {/* Status pill */}
+                        <span style={{
+                          position: 'absolute', top: '0.75rem', right: '0.75rem',
+                          background: statusColors[c.status] || '#94a3b8',
+                          color: '#fff', fontSize: '0.65rem', fontWeight: 800,
+                          padding: '0.25rem 0.6rem', borderRadius: '999px',
+                          textTransform: 'uppercase', letterSpacing: '0.05em',
+                        }}>{c.status}</span>
+                      </div>
+
+                      {/* Body */}
+                      <div style={{ padding: '1.25rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {/* Area & Type */}
+                        <div>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 800, color: '#111', textTransform: 'uppercase' }}>
+                            {c.area_name || 'Unknown Area'}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600, marginTop: '2px' }}>
+                            {c.type} • {new Date(c.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </div>
+                        </div>
+
+                        {/* Description */}
+                        <p style={{
+                          fontSize: '0.85rem', color: '#475569', lineHeight: 1.5,
+                          display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden', margin: 0, flex: 1,
+                        }}>
+                          {c.description || 'No description provided.'}
+                        </p>
+
+                        {/* User */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #f1f5f9' }}>
+                          <div style={{
+                            width: '28px', height: '28px', borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '0.7rem', color: '#fff', fontWeight: 800,
+                          }}>
+                            {(c.users?.username || 'A')[0].toUpperCase()}
+                          </div>
+                          <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>
+                            {c.is_anonymous ? '🕶️ Anonymous' : (c.users?.username || 'Unknown')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions bar */}
+                      <div style={{
+                        padding: '0.75rem 1.25rem',
+                        borderTop: '1px solid #f1f5f9',
+                        display: 'flex', gap: '0.5rem',
+                        background: '#fafbfc',
+                      }}>
                         <button
-                          className="btn btn-primary btn-sm"
+                          className="btn btn-sm"
                           onClick={() => setSelectedMapComplaint(c)}
-                        >
-                          📍 Map
-                        </button>
+                          style={{ flex: 1, justifyContent: 'center', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem' }}
+                        >📍 Map</button>
+
                         {c.status === 'Pending' && (
                           <>
                             <button
-                              className="btn btn-success btn-sm"
+                              className="btn btn-sm"
                               disabled={!!actionLoading[c.id]}
                               onClick={() => handleAction(c.id, 'approve')}
-                            >
-                              {actionLoading[c.id] === 'approve' ? '...' : '✅'}
-                            </button>
+                              style={{ flex: 1, justifyContent: 'center', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem' }}
+                            >{actionLoading[c.id] === 'approve' ? '...' : '✅ Approve'}</button>
                             <button
-                              className="btn btn-danger btn-sm"
+                              className="btn btn-sm"
                               disabled={!!actionLoading[c.id]}
                               onClick={() => handleAction(c.id, 'reject')}
-                            >
-                              {actionLoading[c.id] === 'reject' ? '...' : '❌'}
-                            </button>
+                              style={{ flex: 1, justifyContent: 'center', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem' }}
+                            >{actionLoading[c.id] === 'reject' ? '...' : '❌ Reject'}</button>
                           </>
                         )}
                       </div>
-                    </td>
-                  </motion.tr>
-                ))}
+                    </motion.div>
+                  );
+                })}
               </AnimatePresence>
-            </tbody>
-          </table>
-
-          {complaints.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No complaints found</div>
+            </div>
           )}
-        </div>
+        </>
       )}
 
       {/* Pagination */}
