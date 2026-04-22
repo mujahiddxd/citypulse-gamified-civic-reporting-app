@@ -30,6 +30,7 @@ const AdminComplaints = () => {
   const [total, setTotal] = useState(0);
   const [actionLoading, setActionLoading] = useState({});
   const [selectedMapComplaint, setSelectedMapComplaint] = useState(null);
+  const [selectedDetail, setSelectedDetail] = useState(null);
   const { session } = useAuth();
 
   useEffect(() => {
@@ -98,10 +99,12 @@ const AdminComplaints = () => {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ delay: i * 0.03 }}
+                      onClick={() => setSelectedDetail(c)}
                       style={{
                         background: '#fff',
                         borderRadius: '16px',
                         border: '1px solid #e2e8f0',
+                        cursor: 'pointer',
                         overflow: 'hidden',
                         boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
                         display: 'flex',
@@ -231,40 +234,111 @@ const AdminComplaints = () => {
         </div>
       )}
 
-      {/* Map Modal */}
+      {/* Detail Modal */}
       <AnimatePresence>
-        {selectedMapComplaint && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={() => setSelectedMapComplaint(null)}>
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-              style={{ background: 'white', borderRadius: '16px', border: '4px solid #111', width: '90%', maxWidth: '800px', overflow: 'hidden', boxShadow: '8px 8px 0px #111' }}
-              onClick={e => e.stopPropagation()}>
-              <div style={{ padding: '1.5rem', borderBottom: '2px solid #111', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', textTransform: 'uppercase', color: '#111', fontWeight: 900 }}>📍 Location for {selectedMapComplaint.area_name}</h3>
-                <button className="btn btn-secondary btn-sm" onClick={() => setSelectedMapComplaint(null)}>Close</button>
-              </div>
+        {(selectedDetail || selectedMapComplaint) && (() => {
+          const c = selectedDetail || selectedMapComplaint;
+          const showMap = !!selectedMapComplaint;
+          const severityColors = { Low: '#22c55e', Medium: '#f59e0b', High: '#ef4444' };
+          const statusColors = { Pending: '#f59e0b', Approved: '#22c55e', Rejected: '#ef4444' };
+          return (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+              onClick={() => { setSelectedDetail(null); setSelectedMapComplaint(null); }}>
+              <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 30 }}
+                style={{ background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '720px', maxHeight: '90vh', overflow: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.3)' }}
+                onClick={e => e.stopPropagation()}>
 
-              <div style={{ height: '400px', width: '100%' }}>
-                <MapContainer center={[selectedMapComplaint.latitude, selectedMapComplaint.longitude]} zoom={15} style={{ height: '100%', width: '100%' }}>
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
-                  <Marker position={[selectedMapComplaint.latitude, selectedMapComplaint.longitude]} icon={redIcon}>
-                    <Popup>
-                      <strong>{selectedMapComplaint.type}</strong><br />
-                      Reported by {selectedMapComplaint.users?.username || 'Anonymous'}
-                    </Popup>
-                  </Marker>
-                </MapContainer>
-              </div>
-              <div style={{ padding: '1.5rem', background: '#f8fafc', borderTop: '2px solid #111' }}>
-                <div style={{ fontSize: '0.85rem', color: '#6b7280', textTransform: 'uppercase', fontWeight: 800 }}>Coordinates</div>
-                <div style={{ fontFamily: 'monospace', fontSize: '1.1rem', color: '#111', background: '#e2e8f0', padding: '0.5rem', borderRadius: '4px', display: 'inline-block', marginTop: '0.25rem' }}>
-                  Lat: {selectedMapComplaint.latitude.toFixed(6)}, Lng: {selectedMapComplaint.longitude.toFixed(6)}
+                {/* Header */}
+                <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: '#fff', zIndex: 1, borderRadius: '20px 20px 0 0' }}>
+                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', textTransform: 'uppercase', color: '#111', fontWeight: 900, margin: 0 }}>
+                    📋 Report Details
+                  </h3>
+                  <button onClick={() => { setSelectedDetail(null); setSelectedMapComplaint(null); }}
+                    style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >✕</button>
                 </div>
-              </div>
+
+                {/* Image */}
+                {c.image_url ? (
+                  <div style={{ width: '100%', maxHeight: '360px', overflow: 'hidden', background: '#f1f5f9' }}>
+                    <img src={c.image_url} alt="Report" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  </div>
+                ) : (
+                  <div style={{ width: '100%', height: '180px', background: 'linear-gradient(135deg,#f1f5f9,#e2e8f0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4rem', color: '#cbd5e1' }}>🗑️</div>
+                )}
+
+                {/* Body */}
+                <div style={{ padding: '1.5rem' }}>
+                  {/* Status & Severity */}
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <span style={{ background: severityColors[c.severity], color: '#fff', fontSize: '0.7rem', fontWeight: 800, padding: '0.3rem 0.75rem', borderRadius: '999px', textTransform: 'uppercase' }}>{c.severity} Severity</span>
+                    <span style={{ background: statusColors[c.status], color: '#fff', fontSize: '0.7rem', fontWeight: 800, padding: '0.3rem 0.75rem', borderRadius: '999px', textTransform: 'uppercase' }}>{c.status}</span>
+                    <span style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.7rem', fontWeight: 700, padding: '0.3rem 0.75rem', borderRadius: '999px', textTransform: 'uppercase' }}>{c.type}</span>
+                  </div>
+
+                  {/* Area */}
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', fontWeight: 900, color: '#111', textTransform: 'uppercase', margin: '0 0 0.25rem' }}>{c.area_name || 'Unknown Area'}</h2>
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1rem' }}>
+                    {new Date(c.created_at).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} at {new Date(c.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+
+                  {/* Description */}
+                  <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '1rem', marginBottom: '1.25rem', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '0.08em', marginBottom: '0.4rem' }}>Description</div>
+                    <p style={{ fontSize: '0.9rem', color: '#334155', lineHeight: 1.6, margin: 0 }}>{c.description || 'No description provided.'}</p>
+                  </div>
+
+                  {/* Additional Info */}
+                  {c.additional_info && (
+                    <div style={{ background: '#fefce8', borderRadius: '12px', padding: '1rem', marginBottom: '1.25rem', border: '1px solid #fde68a' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: '#a16207', letterSpacing: '0.08em', marginBottom: '0.4rem' }}>Additional Info</div>
+                      <p style={{ fontSize: '0.85rem', color: '#78350f', lineHeight: 1.5, margin: 0 }}>{c.additional_info}</p>
+                    </div>
+                  )}
+
+                  {/* Info Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                    <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '0.75rem', border: '1px solid #e2e8f0' }}>
+                      <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '0.08em' }}>Reported By</div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#111', marginTop: '0.2rem' }}>{c.is_anonymous ? '🕶️ Anonymous' : (c.users?.username || 'Unknown')}</div>
+                    </div>
+                    <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '0.75rem', border: '1px solid #e2e8f0' }}>
+                      <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '0.08em' }}>Coordinates</div>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#111', marginTop: '0.2rem', fontFamily: 'monospace' }}>{c.latitude?.toFixed(4)}, {c.longitude?.toFixed(4)}</div>
+                    </div>
+                  </div>
+
+                  {/* Map */}
+                  <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', marginBottom: '1.25rem', height: '220px' }}>
+                    <MapContainer center={[c.latitude, c.longitude]} zoom={15} style={{ height: '100%', width: '100%' }} key={c.id + '-modal-map'}>
+                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
+                      <Marker position={[c.latitude, c.longitude]} icon={redIcon}>
+                        <Popup><strong>{c.area_name}</strong></Popup>
+                      </Marker>
+                    </MapContainer>
+                  </div>
+
+                  {/* Actions */}
+                  {c.status === 'Pending' && (
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <button
+                        disabled={!!actionLoading[c.id]}
+                        onClick={() => { handleAction(c.id, 'approve'); setSelectedDetail(prev => prev ? { ...prev, status: 'Approved' } : null); }}
+                        style={{ flex: 1, padding: '0.85rem', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                      >{actionLoading[c.id] === 'approve' ? 'Processing...' : '✅ Approve Report'}</button>
+                      <button
+                        disabled={!!actionLoading[c.id]}
+                        onClick={() => { handleAction(c.id, 'reject'); setSelectedDetail(prev => prev ? { ...prev, status: 'Rejected' } : null); }}
+                        style={{ flex: 1, padding: '0.85rem', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                      >{actionLoading[c.id] === 'reject' ? 'Processing...' : '❌ Reject Report'}</button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
+          );
+        })()}
       </AnimatePresence>
 
     </AdminLayout>
