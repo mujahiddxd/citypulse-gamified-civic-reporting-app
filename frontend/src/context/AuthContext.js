@@ -230,6 +230,7 @@ export const AuthProvider = ({ children }) => {
     setSession(null);
     profileFetchedRef.current = null;
     localStorage.removeItem('access_token');
+    localStorage.removeItem('citypulse_admin_token');
     try {
       await supabase.auth.signOut();
     } catch (err) {

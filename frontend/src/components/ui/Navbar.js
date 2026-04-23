@@ -65,16 +65,7 @@ const Navbar = () => {
               }}>{label}</Link>
             ))}
 
-            {(user?.role === 'admin' || user?.role === 'officer') && (
-              <Link to="/admin" style={{
-                padding: '0.5rem 1rem',
-                fontFamily: 'var(--font-display)', fontSize: '0.9rem', fontWeight: '800',
-                letterSpacing: '0.05em', textTransform: 'uppercase',
-                color: 'var(--danger)', borderRadius: '10px', transition: 'all 0.2s',
-                background: location.pathname.startsWith('/admin') ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
-              }}>Admin</Link>
-            )}
-          </div>
+            </div>
 
           {/* Right Side Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

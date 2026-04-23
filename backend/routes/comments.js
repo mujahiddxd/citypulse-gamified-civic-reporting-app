@@ -29,11 +29,11 @@ router.get('/:complaint_id', async (req, res) => {
     const { data, error } = await supabase
         .from('report_comments')
         .select(`
-      id, content, is_official_update, created_at,
-      users(id, username, role)  -- join to display who wrote the comment
+      id, content, image_url, is_official_update, created_at,
+      users(id, username, role)
     `)
         .eq('complaint_id', complaint_id)
-        .order('created_at', { ascending: true }); // Oldest comment first (thread order)
+        .order('created_at', { ascending: true });
 
     if (error) return res.status(500).json({ error: error.message });
     res.json(data || []);
@@ -44,31 +44,31 @@ router.get('/:complaint_id', async (req, res) => {
 // Comments are limited to 500 characters.
 // Only admins/officers can set is_official_update = true.
 router.post('/', authenticate, async (req, res) => {
-    const { complaint_id, content } = req.body;
+    const { complaint_id, content, image_url } = req.body;
 
-    // Validate required fields
-    if (!complaint_id || !content || !content.trim()) {
-        return res.status(400).json({ error: 'complaint_id and content are required' });
+    // Validate: need at least content or image
+    if (!complaint_id || (!content?.trim() && !image_url)) {
+        return res.status(400).json({ error: 'complaint_id and content or image are required' });
     }
-    if (content.trim().length > 500) {
+    if (content && content.trim().length > 500) {
         return res.status(400).json({ error: 'Comment must be under 500 characters' });
     }
 
-    // Determine if this should be flagged as an official update
-    // Regular users can't set this even if they send it in the body
     const isOfficial = req.user.role === 'admin' || req.user.role === 'officer';
+
+    const insertData = {
+        complaint_id,
+        user_id: req.user.id,
+        content: content?.trim() || '',
+        is_official_update: isOfficial && req.body.is_official_update === true,
+    };
+    // Only add image_url if provided (avoids null column issues if column doesn't exist yet)
+    if (image_url) insertData.image_url = image_url;
 
     const { data: comment, error } = await supabase
         .from('report_comments')
-        .insert({
-            complaint_id,
-            user_id: req.user.id,
-            content: content.trim(),
-            // Only mark official if the user IS admin/officer AND they requested it
-            is_official_update: isOfficial && req.body.is_official_update === true,
-        })
-        // Return the new comment with user details in one query
-        .select(`id, content, is_official_update, created_at, users(id, username, role)`)
+        .insert(insertData)
+        .select(`id, content, image_url, is_official_update, created_at, users(id, username, role)`)
         .single();
 
     if (error) return res.status(500).json({ error: error.message });

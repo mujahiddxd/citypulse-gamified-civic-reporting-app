@@ -145,6 +145,9 @@ const CommentThread = ({ complaintId, user }) => {
     const [postError, setPostError] = useState('');
     const [text, setText] = useState('');
     const [isOfficialUpdate, setIsOfficialUpdate] = useState(false);
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+    const fileInputRef = React.useRef(null);
 
     const isPrivileged = user?.role === 'admin' || user?.role === 'officer';
 
@@ -155,7 +158,6 @@ const CommentThread = ({ complaintId, user }) => {
             const { data } = await api.get(`/comments/${complaintId}`);
             setComments(data || []);
         } catch (e) {
-            // Check if the table doesn't exist yet (common cause)
             const msg = e?.response?.data?.error || String(e);
             if (msg.includes('does not exist') || msg.includes('relation') || e?.response?.status === 500) {
                 setCommentError('table_missing');
@@ -169,19 +171,53 @@ const CommentThread = ({ complaintId, user }) => {
 
     useEffect(() => { fetchComments(); }, [fetchComments]);
 
+    const handleImageSelect = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { setPostError('Image must be under 5MB'); return; }
+        setImageFile(file);
+        const reader = new FileReader();
+        reader.onload = (ev) => setImagePreview(ev.target.result);
+        reader.readAsDataURL(file);
+    };
+
+    const clearImage = () => {
+        setImageFile(null);
+        setImagePreview(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
     const handlePost = async () => {
-        if (!text.trim() || posting) return;
+        if ((!text.trim() && !imageFile) || posting) return;
         setPosting(true);
         setPostError('');
         try {
-            const { data } = await api.post('/comments', {
+            let uploadedImageUrl = null;
+            if (imageFile) {
+                const { createClient } = await import('@supabase/supabase-js');
+                const sb = createClient(process.env.REACT_APP_SUPABASE_URL, process.env.REACT_APP_SUPABASE_ANON_KEY);
+                const ext = imageFile.name.split('.').pop();
+                const fileName = `comment_${Date.now()}_${Math.random().toString(36).substr(2, 6)}.${ext}`;
+                const { error: uploadErr } = await sb.storage.from('comment-images').upload(fileName, imageFile, { contentType: imageFile.type });
+                if (!uploadErr) {
+                    const { data: urlData } = sb.storage.from('comment-images').getPublicUrl(fileName);
+                    uploadedImageUrl = urlData?.publicUrl;
+                } else {
+                    console.warn('Image upload failed:', uploadErr.message);
+                }
+            }
+            const payload = {
                 complaint_id: complaintId,
                 content: text.trim(),
                 is_official_update: isPrivileged ? isOfficialUpdate : false,
-            });
+            };
+            if (uploadedImageUrl) payload.image_url = uploadedImageUrl;
+
+            const { data } = await api.post('/comments', payload);
             setComments(p => [...p, data]);
             setText('');
             setIsOfficialUpdate(false);
+            clearImage();
         } catch (e) {
             setPostError(e?.response?.data?.error || 'Failed to post comment.');
         } finally {
@@ -193,67 +229,53 @@ const CommentThread = ({ complaintId, user }) => {
         try {
             await api.delete(`/comments/${commentId}`);
             setComments(p => p.filter(c => c.id !== commentId));
-        } catch (e) {
-            console.error(e);
-        }
+        } catch (e) { console.error(e); }
     };
 
-    // Table not migrated yet
     if (commentError === 'table_missing') {
         return (
             <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: '10px', padding: '1rem', fontSize: '0.85rem', color: '#854d0e' }}>
-                ⚠️ The comments table hasn't been set up yet. Please run <code style={{ background: '#fef08a', padding: '1px 4px', borderRadius: '4px' }}>supabase/add_report_comments.sql</code> in Supabase SQL Editor to enable comments.
+                ⚠️ The comments table hasn't been set up yet. Run <code style={{ background: '#fef08a', padding: '1px 4px', borderRadius: '4px' }}>supabase/add_report_comments.sql</code> in Supabase SQL Editor.
             </div>
         );
     }
-
-    if (commentError) {
-        return (
-            <div style={{ color: '#ef4444', fontSize: '0.85rem', padding: '0.5rem' }}>⚠️ {commentError}</div>
-        );
-    }
+    if (commentError) return <div style={{ color: '#ef4444', fontSize: '0.85rem', padding: '0.5rem' }}>⚠️ {commentError}</div>;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {/* Comment list */}
             {loadingComments ? (
                 <div style={{ color: '#94a3b8', fontSize: '0.82rem', padding: '0.5rem 0' }}>Loading comments…</div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                     {comments.map(c => (
                         <div key={c.id} style={{
-                            background: c.is_official_update
-                                ? 'linear-gradient(135deg, #eff6ff, #dbeafe)'
-                                : '#f8fafc',
+                            background: c.is_official_update ? 'linear-gradient(135deg, #eff6ff, #dbeafe)' : '#f8fafc',
                             border: c.is_official_update ? '1.5px solid #93c5fd' : '1px solid #e2e8f0',
                             borderRadius: '10px', padding: '0.75rem 1rem',
                         }}>
                             {c.is_official_update && (
-                                <div style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                    background: '#1d4ed8', color: '#fff', fontSize: '0.65rem',
-                                    fontWeight: '800', padding: '2px 8px', borderRadius: '999px',
-                                    marginBottom: '6px', letterSpacing: '0.05em', textTransform: 'uppercase'
-                                }}>🏛️ Official Update</div>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#1d4ed8', color: '#fff', fontSize: '0.65rem', fontWeight: '800', padding: '2px 8px', borderRadius: '999px', marginBottom: '6px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>🏛️ Official Update</div>
                             )}
-                            <div style={{ fontSize: '0.88rem', color: '#1e293b', lineHeight: 1.5 }}>{c.content}</div>
+                            {c.content && <div style={{ fontSize: '0.88rem', color: '#1e293b', lineHeight: 1.5 }}>{c.content}</div>}
+                            {c.image_url && (
+                                <div style={{ marginTop: '0.5rem' }}>
+                                    <img src={c.image_url} alt="Attachment"
+                                        style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer', border: '1px solid #e2e8f0' }}
+                                        onClick={() => window.open(c.image_url, '_blank')} />
+                                </div>
+                            )}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
                                 <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
                                     @{c.users?.username || 'user'} · {new Date(c.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                                 </span>
                                 {(user?.id === c.users?.id || isPrivileged) && (
-                                    <button onClick={() => handleDelete(c.id)}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '0.72rem' }}>
-                                        🗑️ delete
-                                    </button>
+                                    <button onClick={() => handleDelete(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '0.72rem' }}>🗑️ delete</button>
                                 )}
                             </div>
                         </div>
                     ))}
                     {comments.length === 0 && (
-                        <div style={{ color: '#94a3b8', fontSize: '0.85rem', fontStyle: 'italic', padding: '0.25rem 0' }}>
-                            No comments yet — be the first!
-                        </div>
+                        <div style={{ color: '#94a3b8', fontSize: '0.85rem', fontStyle: 'italic', padding: '0.25rem 0' }}>No comments yet — be the first!</div>
                     )}
                 </div>
             )}
@@ -261,37 +283,34 @@ const CommentThread = ({ complaintId, user }) => {
             {/* Comment input */}
             {user ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '0.25rem' }}>
-                    <textarea
-                        value={text}
-                        onChange={e => setText(e.target.value)}
-                        placeholder="Write a comment…"
-                        maxLength={500} rows={2}
-                        style={{
-                            width: '100%', padding: '0.65rem 0.85rem', borderRadius: '10px',
-                            border: `1.5px solid ${postError ? '#ef4444' : '#cbd5e1'}`,
-                            resize: 'vertical', fontSize: '0.88rem', fontFamily: 'var(--font-body)',
-                            outline: 'none', boxSizing: 'border-box', background: '#f8fafc',
-                        }}
-                    />
+                    <textarea value={text} onChange={e => setText(e.target.value)} placeholder="Write a comment…" maxLength={500} rows={2}
+                        style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '10px', border: `1.5px solid ${postError ? '#ef4444' : '#cbd5e1'}`, resize: 'vertical', fontSize: '0.88rem', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box', background: '#f8fafc' }} />
+                    {imagePreview && (
+                        <div style={{ position: 'relative', display: 'inline-block', maxWidth: '180px' }}>
+                            <img src={imagePreview} alt="Preview" style={{ width: '100%', maxHeight: '100px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #e2e8f0' }} />
+                            <button onClick={clearImage} style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '0.65rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                        </div>
+                    )}
                     {postError && <div style={{ color: '#ef4444', fontSize: '0.78rem' }}>⚠️ {postError}</div>}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        {isPrivileged && (
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: '700', color: '#1d4ed8', cursor: 'pointer' }}>
-                                <input type="checkbox" checked={isOfficialUpdate} onChange={e => setIsOfficialUpdate(e.target.checked)} style={{ accentColor: '#1d4ed8' }} />
-                                Mark as Official Update
-                            </label>
-                        )}
-                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageSelect} style={{ display: 'none' }} />
+                            <button onClick={() => fileInputRef.current?.click()} title="Attach image"
+                                style={{ background: imageFile ? '#dbeafe' : '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.4rem 0.7rem', cursor: 'pointer', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700, color: '#475569' }}>
+                                📷 {imageFile ? 'Change' : 'Image'}
+                            </button>
+                            {isPrivileged && (
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: '700', color: '#1d4ed8', cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={isOfficialUpdate} onChange={e => setIsOfficialUpdate(e.target.checked)} style={{ accentColor: '#1d4ed8' }} />
+                                    Official
+                                </label>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{text.length}/500</span>
-                            <button onClick={handlePost} disabled={!text.trim() || posting}
-                                style={{
-                                    background: text.trim() ? '#0f172a' : '#e2e8f0',
-                                    color: text.trim() ? '#FFDC2B' : '#94a3b8',
-                                    border: 'none', borderRadius: '8px', padding: '0.45rem 1.1rem',
-                                    fontFamily: 'var(--font-display)', fontWeight: '800', fontSize: '0.82rem',
-                                    cursor: text.trim() ? 'pointer' : 'default',
-                                }}>
-                                {posting ? '…' : 'Post'}
+                            <button onClick={handlePost} disabled={(!text.trim() && !imageFile) || posting}
+                                style={{ background: (text.trim() || imageFile) ? '#0f172a' : '#e2e8f0', color: (text.trim() || imageFile) ? '#FFDC2B' : '#94a3b8', border: 'none', borderRadius: '8px', padding: '0.45rem 1.1rem', fontFamily: 'var(--font-display)', fontWeight: '800', fontSize: '0.82rem', cursor: (text.trim() || imageFile) ? 'pointer' : 'default' }}>
+                                {posting ? '📤 ...' : '💬 Post'}
                             </button>
                         </div>
                     </div>
@@ -304,6 +323,8 @@ const CommentThread = ({ complaintId, user }) => {
         </div>
     );
 };
+
+
 
 // ── Report Card ────────────────────────────────────────────────────────────────
 const ReportCard = ({ report, delay, onViewReport }) => {
