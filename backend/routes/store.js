@@ -158,22 +158,35 @@ router.post('/unequip', authenticate, async (req, res) => {
 });
 
 // ── POST /api/store/daily-reward ─────────────────────────────────────────────
-// Awards a daily login reward of coins and XP. Can only be claimed once per 24 hours.
-// Builds a login streak and gives a 2× bonus on every 7th consecutive day.
+// Awards a daily login reward with escalating amounts based on streak day.
+// Each day of the 7-day cycle gives different coins/XP. Day 7 gives a bonus item.
+//
+// WEEKLY REWARD SCHEDULE:
+//   Day 1: 25 coins, 15 XP    Day 5: 60 coins, 30 XP
+//   Day 2: 35 coins, 20 XP    Day 6: 75 coins, 35 XP
+//   Day 3: 50 coins, 25 XP    Day 7: 150 coins, 75 XP + Bonus Item
+//   Day 4: 40 coins, 20 XP
 //
 // HOW STREAK IS TRACKED:
 //   "DAILY_CLAIMED:<timestamp>" → when the last claim happened (Unix ms)
 //   "DAILY_STREAK:<number>"     → current streak count
-//   These are stored inside the inventory array as tagged strings.
 //
 // Streak rules:
 //   - If last claim was > 24h ago but < 48h ago → streak continues
 //   - If last claim was > 48h ago → streak resets to 1
-//   - Every 7th day in a streak → 2× bonus (100 coins + 50 XP instead of 50 + 25)
+const WEEKLY_REWARDS = [
+    { coins: 25,  xp: 15  }, // Day 1
+    { coins: 35,  xp: 20  }, // Day 2
+    { coins: 50,  xp: 25  }, // Day 3
+    { coins: 40,  xp: 20  }, // Day 4
+    { coins: 60,  xp: 30  }, // Day 5
+    { coins: 75,  xp: 35  }, // Day 6
+    { coins: 150, xp: 75  }, // Day 7 (Jackpot!)
+];
+const DAY7_BONUS_ITEM = 'Midnight Patrol'; // Rare theme awarded on every 7th day
+
 router.post('/daily-reward', authenticate, async (req, res) => {
     const userId = req.user.id;
-    const COINS_REWARD = 50; // Base coins per claim
-    const XP_REWARD = 25; // Base XP per claim
     const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
     try {
@@ -201,27 +214,39 @@ router.post('/daily-reward', authenticate, async (req, res) => {
             return res.json({
                 granted: false,
                 message: 'Already claimed today',
-                next_claim_at: nextClaimAt, // Frontend uses this to show a countdown timer
+                next_claim_at: nextClaimAt,
                 streak: currentStreak,
+                day_in_week: currentStreak > 0 ? ((currentStreak - 1) % 7) + 1 : 0,
+                coins_awarded: 0,
+                xp_awarded: 0,
             });
         }
 
         // Determine if the streak continues or resets
-        // Grace period: if last claim was within 48h, streak continues (+1)
-        // Otherwise (missed a day): streak resets to 1
         const withinStreak = now - lastClaimed < 2 * COOLDOWN_MS; // 48-hour grace window
         const newStreak = (lastClaimed > 0 && withinStreak) ? currentStreak + 1 : 1;
 
-        // 7-day streak milestone gives 2× bonus
-        const streakBonus = newStreak % 7 === 0 ? 2 : 1;
-        const totalCoins = COINS_REWARD * streakBonus;
-        const totalXP = XP_REWARD * streakBonus;
+        // Calculate the day within the 7-day cycle (1-7)
+        const dayInWeek = ((newStreak - 1) % 7); // 0-6 index
+        const dayReward = WEEKLY_REWARDS[dayInWeek];
+        const totalCoins = dayReward.coins;
+        const totalXP = dayReward.xp;
+        const isDay7 = dayInWeek === 6; // Index 6 = Day 7
 
         // Replace old DAILY_CLAIMED and DAILY_STREAK tags with updated values
         const cleanInventory = inventory.filter(
             i => !i.startsWith('DAILY_CLAIMED:') && !i.startsWith('DAILY_STREAK:')
         );
         cleanInventory.push(`DAILY_CLAIMED:${now}`, `DAILY_STREAK:${newStreak}`);
+
+        // On Day 7, add the bonus item if user doesn't already own it
+        let bonusItem = null;
+        if (isDay7 && !cleanInventory.includes(DAY7_BONUS_ITEM)) {
+            cleanInventory.push(DAY7_BONUS_ITEM);
+            bonusItem = DAY7_BONUS_ITEM;
+        } else if (isDay7) {
+            bonusItem = DAY7_BONUS_ITEM; // Already owned, still show in UI
+        }
 
         // Update user: add rewards + update inventory tags in one DB write
         const { error: updateError } = await supabase
@@ -240,7 +265,9 @@ router.post('/daily-reward', authenticate, async (req, res) => {
             coins_awarded: totalCoins,
             xp_awarded: totalXP,
             streak: newStreak,
-            streak_bonus: streakBonus > 1, // Boolean — was this a bonus day?
+            day_in_week: dayInWeek + 1, // 1-indexed for frontend display
+            streak_bonus: isDay7,
+            bonus_item: bonusItem,
             next_claim_at: now + COOLDOWN_MS,
             new_coins: (user.coins || 0) + totalCoins,
             new_xp: (user.xp || 0) + totalXP,

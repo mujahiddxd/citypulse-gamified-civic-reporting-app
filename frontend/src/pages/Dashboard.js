@@ -35,10 +35,10 @@ const Dashboard = () => {
   const checkDailyReward = async () => {
     try {
       const { data } = await api.post('/store/daily-reward', {});
-      if (data.granted) {
-        setDailyReward(data);
-        setShowRewardModal(true);
-      }
+      // Always show the modal so users can see the weekly chart
+      // The modal handles both granted=true and granted=false states
+      setDailyReward(data);
+      setShowRewardModal(true);
     } catch (err) {
       console.warn('[Daily Reward] Check failed:', err.message);
     }
