@@ -57,7 +57,7 @@ const AdminPassGate = ({ children }) => {
             onClick={() => window.location.href = '/'}
             style={{
               padding: '0.75rem 2rem',
-              background: 'linear-gradient(135deg, var(--primary-700), var(--primary-500))',
+              background: 'linear-gradient(135deg, #c62828, #ef5350)',
               color: 'white',
               border: 'none',
               borderRadius: '999px',

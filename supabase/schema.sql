@@ -39,7 +39,13 @@ CREATE TABLE public.complaints (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   approved_at TIMESTAMPTZ,
   resolved_at TIMESTAMPTZ,
-  resolution_time INTEGER -- in minutes
+  resolution_time INTEGER, -- in minutes
+  -- AI Garbage Verification fields
+  ai_verified BOOLEAN,           -- true = AI detected garbage, false = not detected, null = not analyzed
+  ai_confidence INTEGER,         -- 0-100 confidence percentage
+  ai_severity TEXT,              -- AI-estimated severity (Low/Medium/High)
+  ai_user_override BOOLEAN DEFAULT FALSE, -- true if user submitted despite AI rejection
+  ai_mode TEXT                   -- 'ai_analyzed', 'admin_fallback', 'model_loading', null
 );
 
 -- ============================================

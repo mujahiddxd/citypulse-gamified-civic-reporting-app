@@ -3,6 +3,7 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { SkeletonAdminTable } from '../../components/ui/SkeletonLoader';
+import ProfileCard from '../../components/ui/ProfileCard';
 
 export const AdminUsers = () => {
   const { session } = useAuth();
@@ -29,9 +30,7 @@ export const AdminUsers = () => {
     fetchUsers();
   }, [session?.access_token]);
 
-  const toggleRole = async (userId, currentRole) => {
-    const cycle = { user: 'officer', officer: 'admin', admin: 'user' };
-    const newRole = cycle[currentRole] || 'user';
+  const changeRole = async (userId, newRole) => {
     if (!window.confirm(`Change this user's role to ${newRole.toUpperCase()}?`)) return;
     try {
       await api.patch(`/admin/users/${userId}/role`, { role: newRole });
@@ -66,39 +65,22 @@ export const AdminUsers = () => {
         </span>
       </div>
       {loading ? <SkeletonAdminTable rows={8} cols={7} /> : (
-        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', overflowX: 'auto' }}>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Level</th>
-                <th>XP</th>
-                <th>Role</th>
-                <th>Joined</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(u => (
-                <tr key={u.id}>
-                  <td><a href={`/profile/${u.username}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--red-400)' }}>{u.username}</a></td>
-                  <td style={{ color: 'var(--text-muted)' }}>{u.email}</td>
-                  <td>Lv. {u.level}</td>
-                  <td style={{ color: '#FFD700', fontFamily: 'var(--font-display)', fontWeight: '700' }}>{u.xp?.toLocaleString()}</td>
-                  <td>
-                    <span className={`badge ${u.role === 'admin' ? 'badge-approved' : 'badge-pending'}`}>{u.role}</span>
-                  </td>
-                  <td style={{ color: 'var(--text-muted)' }}>{new Date(u.created_at).toLocaleDateString()}</td>
-                  <td>
-                    <button className="btn btn-ghost btn-sm" onClick={() => toggleRole(u.id, u.role)}>
-                      {u.role === 'admin' ? '⬇️ Demote to User' : (u.role === 'officer' ? '⬆️ Promote to Admin' : '⬆️ Promote to Officer')}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', marginTop: '1rem', justifyContent: 'center' }}>
+          {filtered.map(u => {
+            return (
+              <ProfileCard
+                key={u.id}
+                name={u.username}
+                title={`Lv. ${u.level || 1} • ${u.xp?.toLocaleString() || 0} XP`}
+                handle={u.email.split('@')[0]}
+                status={u.role.toUpperCase()}
+                onPromoteClick={u.role === 'user' ? () => changeRole(u.id, 'officer') : (u.role === 'officer' ? () => changeRole(u.id, 'admin') : undefined)}
+                onDemoteClick={u.role === 'admin' ? () => changeRole(u.id, 'officer') : (u.role === 'officer' ? () => changeRole(u.id, 'user') : undefined)}
+                avatarUrl={`https://ui-avatars.com/api/?name=${u.username}&background=0D8ABC&color=fff&size=150`}
+                enableTilt={true}
+              />
+            );
+          })}
         </div>
       )}
     </AdminLayout>

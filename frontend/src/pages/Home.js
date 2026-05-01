@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import { SkeletonHome } from '../components/ui/SkeletonLoader';
+import Stepper, { Step } from '../components/ui/Stepper';
 
 const FEATURES = [
   { icon: '📍', title: 'Report Issues', desc: 'Drop a pin, snap a photo, describe the problem. Takes 60 seconds.' },
@@ -143,6 +144,60 @@ const Home = () => {
             </motion.div>
           ))}
         </div>
+      </section>
+
+      {/* Tutorial Section */}
+      <section style={{ padding: '6rem 2rem', background: '#f8fafc' }}>
+        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: '800', textTransform: 'uppercase', color: '#111827' }}>
+            How It <span style={{ color: '#C62828' }}>Works</span>
+          </h2>
+          <p style={{ color: '#6B7280', marginTop: '0.75rem', fontSize: '1rem' }}>
+            A quick interactive guide to making your city better.
+          </p>
+        </div>
+
+        <Stepper
+          initialStep={1}
+          backButtonText="Previous"
+          nextButtonText="Next"
+        >
+          <Step>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: '800', color: '#111' }}>1. Report an Issue 📸</h2>
+            <img style={{ height: '300px', width: '100%', objectFit: 'cover', borderRadius: '12px', marginTop: '1rem', border: '3px solid #111', boxShadow: '4px 4px 0px #111' }} src="https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?w=800&q=80" alt="Report Trash" />
+            <p style={{ marginTop: '1.5rem', color: '#4B5563', fontSize: '1.1rem', lineHeight: '1.6', maxWidth: '600px' }}>
+              Spot some garbage or a civic issue? Snap a photo, drop a pin on the map, and submit a complaint. It takes less than 60 seconds to notify the authorities.
+            </p>
+          </Step>
+          <Step>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: '800', color: '#111' }}>2. Track on the Feed 📰</h2>
+            <img style={{ height: '300px', width: '100%', objectFit: 'cover', borderRadius: '12px', marginTop: '1rem', border: '3px solid #111', boxShadow: '4px 4px 0px #111' }} src="https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&q=80" alt="Feed" />
+            <p style={{ marginTop: '1.5rem', color: '#4B5563', fontSize: '1.1rem', lineHeight: '1.6', maxWidth: '600px' }}>
+              Once reported, your issue appears on the public feed. Everyone can see the real-time status as the city works to resolve it.
+            </p>
+          </Step>
+          <Step>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: '800', color: '#111' }}>3. Climb the League 🏆</h2>
+            <img style={{ height: '300px', width: '100%', objectFit: 'cover', borderRadius: '12px', marginTop: '1rem', border: '3px solid #111', boxShadow: '4px 4px 0px #111' }} src="https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?w=800&q=80" alt="Leaderboard" />
+            <p style={{ marginTop: '1.5rem', color: '#4B5563', fontSize: '1.1rem', lineHeight: '1.6', maxWidth: '600px' }}>
+              Earn XP for every valid report! Climb the leaderboard and compete with other citizens to become the ultimate Eco-Warrior.
+            </p>
+          </Step>
+          <Step>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: '800', color: '#111' }}>4. Shop the Reward Store 🎁</h2>
+            <img style={{ height: '300px', width: '100%', objectFit: 'cover', borderRadius: '12px', marginTop: '1rem', border: '3px solid #111', boxShadow: '4px 4px 0px #111' }} src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&q=80" alt="Store" />
+            <p style={{ marginTop: '1.5rem', color: '#4B5563', fontSize: '1.1rem', lineHeight: '1.6', maxWidth: '600px' }}>
+              Use your hard-earned Coins to buy cool cosmetic items, profile borders, and badges in the Reward Store.
+            </p>
+          </Step>
+          <Step>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: '800', color: '#111' }}>5. Equip in Inventory 🎒</h2>
+            <img style={{ height: '300px', width: '100%', objectFit: 'cover', borderRadius: '12px', marginTop: '1rem', border: '3px solid #111', boxShadow: '4px 4px 0px #111' }} src="https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=800&q=80" alt="Inventory" />
+            <p style={{ marginTop: '1.5rem', color: '#4B5563', fontSize: '1.1rem', lineHeight: '1.6', maxWidth: '600px' }}>
+              Head to your Inventory to equip your new items and show them off to the community. You're ready to make a difference!
+            </p>
+          </Step>
+        </Stepper>
       </section>
 
       {/* Features */}

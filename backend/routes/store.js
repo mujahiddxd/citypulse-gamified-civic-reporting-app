@@ -159,31 +159,51 @@ router.post('/unequip', authenticate, async (req, res) => {
 
 // ── POST /api/store/daily-reward ─────────────────────────────────────────────
 // Awards a daily login reward with escalating amounts based on streak day.
-// Each day of the 7-day cycle gives different coins/XP. Day 7 gives a bonus item.
+// Each day of the 30-day cycle gives different coins/XP.
+// Milestones at Days 7, 14, 21, and 30 give special bonus items.
 //
-// WEEKLY REWARD SCHEDULE:
-//   Day 1: 25 coins, 15 XP    Day 5: 60 coins, 30 XP
-//   Day 2: 35 coins, 20 XP    Day 6: 75 coins, 35 XP
-//   Day 3: 50 coins, 25 XP    Day 7: 150 coins, 75 XP + Bonus Item
-//   Day 4: 40 coins, 20 XP
-//
-// HOW STREAK IS TRACKED:
-//   "DAILY_CLAIMED:<timestamp>" → when the last claim happened (Unix ms)
-//   "DAILY_STREAK:<number>"     → current streak count
-//
-// Streak rules:
-//   - If last claim was > 24h ago but < 48h ago → streak continues
-//   - If last claim was > 48h ago → streak resets to 1
-const WEEKLY_REWARDS = [
+// 30-DAY REWARD SCHEDULE:
+//   - Days 1-6: Normal escalating (25-75 coins)
+//   - Day 7: Milestone (150 coins + 'Midnight Patrol')
+//   - Days 8-13: Escalating (40-90 coins)
+//   - Day 14: Milestone (200 coins + 'Cyberpunk')
+//   - Days 15-20: Escalating (60-120 coins)
+//   - Day 21: Milestone (300 coins + 'Golden Shimmer')
+//   - Days 22-29: High stakes (80-180 coins)
+//   - Day 30: Grand Jackpot (500 coins + 'Eco Legend' Title)
+
+const MONTHLY_REWARDS = [
     { coins: 25,  xp: 15  }, // Day 1
     { coins: 35,  xp: 20  }, // Day 2
     { coins: 50,  xp: 25  }, // Day 3
     { coins: 40,  xp: 20  }, // Day 4
     { coins: 60,  xp: 30  }, // Day 5
     { coins: 75,  xp: 35  }, // Day 6
-    { coins: 150, xp: 75  }, // Day 7 (Jackpot!)
+    { coins: 150, xp: 100, bonus: 'Midnight Patrol' }, // Day 7
+    { coins: 40,  xp: 25  }, // Day 8
+    { coins: 55,  xp: 30  }, // Day 9
+    { coins: 70,  xp: 40  }, // Day 10
+    { coins: 65,  xp: 35  }, // Day 11
+    { coins: 80,  xp: 45  }, // Day 12
+    { coins: 95,  xp: 50  }, // Day 13
+    { coins: 200, xp: 150, bonus: 'Cyberpunk' }, // Day 14
+    { coins: 60,  xp: 40  }, // Day 15
+    { coins: 75,  xp: 50  }, // Day 16
+    { coins: 90,  xp: 60  }, // Day 17
+    { coins: 85,  xp: 55  }, // Day 18
+    { coins: 110, xp: 70  }, // Day 19
+    { coins: 130, xp: 80  }, // Day 20
+    { coins: 300, xp: 200, bonus: 'Golden Shimmer' }, // Day 21
+    { coins: 80,  xp: 60  }, // Day 22
+    { coins: 100, xp: 75  }, // Day 23
+    { coins: 120, xp: 90  }, // Day 24
+    { coins: 140, xp: 105 }, // Day 25
+    { coins: 160, xp: 120 }, // Day 26
+    { coins: 180, xp: 135 }, // Day 27
+    { coins: 150, xp: 110 }, // Day 28
+    { coins: 200, xp: 150 }, // Day 29
+    { coins: 500, xp: 300, bonus: 'Eco Legend' }, // Day 30
 ];
-const DAY7_BONUS_ITEM = 'Midnight Patrol'; // Rare theme awarded on every 7th day
 
 router.post('/daily-reward', authenticate, async (req, res) => {
     const userId = req.user.id;
@@ -216,7 +236,7 @@ router.post('/daily-reward', authenticate, async (req, res) => {
                 message: 'Already claimed today',
                 next_claim_at: nextClaimAt,
                 streak: currentStreak,
-                day_in_week: currentStreak > 0 ? ((currentStreak - 1) % 7) + 1 : 0,
+                day_in_cycle: currentStreak > 0 ? ((currentStreak - 1) % 30) + 1 : 0,
                 coins_awarded: 0,
                 xp_awarded: 0,
             });
@@ -226,12 +246,11 @@ router.post('/daily-reward', authenticate, async (req, res) => {
         const withinStreak = now - lastClaimed < 2 * COOLDOWN_MS; // 48-hour grace window
         const newStreak = (lastClaimed > 0 && withinStreak) ? currentStreak + 1 : 1;
 
-        // Calculate the day within the 7-day cycle (1-7)
-        const dayInWeek = ((newStreak - 1) % 7); // 0-6 index
-        const dayReward = WEEKLY_REWARDS[dayInWeek];
+        // Calculate the day within the 30-day cycle (1-30)
+        const dayIdx = ((newStreak - 1) % 30);
+        const dayReward = MONTHLY_REWARDS[dayIdx];
         const totalCoins = dayReward.coins;
         const totalXP = dayReward.xp;
-        const isDay7 = dayInWeek === 6; // Index 6 = Day 7
 
         // Replace old DAILY_CLAIMED and DAILY_STREAK tags with updated values
         const cleanInventory = inventory.filter(
@@ -239,13 +258,15 @@ router.post('/daily-reward', authenticate, async (req, res) => {
         );
         cleanInventory.push(`DAILY_CLAIMED:${now}`, `DAILY_STREAK:${newStreak}`);
 
-        // On Day 7, add the bonus item if user doesn't already own it
+        // Add bonus item if it's a milestone day
         let bonusItem = null;
-        if (isDay7 && !cleanInventory.includes(DAY7_BONUS_ITEM)) {
-            cleanInventory.push(DAY7_BONUS_ITEM);
-            bonusItem = DAY7_BONUS_ITEM;
-        } else if (isDay7) {
-            bonusItem = DAY7_BONUS_ITEM; // Already owned, still show in UI
+        if (dayReward.bonus) {
+            if (!cleanInventory.includes(dayReward.bonus)) {
+                cleanInventory.push(dayReward.bonus);
+                bonusItem = dayReward.bonus;
+            } else {
+                bonusItem = dayReward.bonus; // Already owned
+            }
         }
 
         // Update user: add rewards + update inventory tags in one DB write
@@ -265,12 +286,12 @@ router.post('/daily-reward', authenticate, async (req, res) => {
             coins_awarded: totalCoins,
             xp_awarded: totalXP,
             streak: newStreak,
-            day_in_week: dayInWeek + 1, // 1-indexed for frontend display
-            streak_bonus: isDay7,
-            bonus_item: bonusItem,
+            day_in_cycle: dayIdx + 1,
             next_claim_at: now + COOLDOWN_MS,
+            bonus_item: bonusItem,
             new_coins: (user.coins || 0) + totalCoins,
             new_xp: (user.xp || 0) + totalXP,
+            inventory: cleanInventory
         });
     } catch (err) {
         console.error('[Daily Reward]', err);

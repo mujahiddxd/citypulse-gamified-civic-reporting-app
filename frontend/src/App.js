@@ -74,6 +74,7 @@ import Statistics from './pages/Statistics';
 import PublicReports from './pages/PublicReports';
 import About from './pages/About';
 import Inventory from './pages/Inventory';
+import Rewards from './pages/Rewards';
 
 // ── PrivateRoute ──────────────────────────────────────────────────────────────
 // Wraps any route that requires a logged-in user.
@@ -143,6 +144,7 @@ const AppContent = () => {
         <Route path="/submit" element={<PrivateRoute><SubmitComplaint /></PrivateRoute>} />
         <Route path="/store" element={<Store />} />
         <Route path="/inventory" element={<PrivateRoute><Inventory /></PrivateRoute>} />
+        <Route path="/rewards" element={<PrivateRoute><Rewards /></PrivateRoute>} />
 
         {/* Standalone admin login — no auth guard (it IS the login page) */}
         <Route path="/admin-login" element={<AdminLogin />} />

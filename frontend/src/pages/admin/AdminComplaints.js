@@ -145,6 +145,26 @@ const AdminComplaints = () => {
                           padding: '0.25rem 0.6rem', borderRadius: '999px',
                           textTransform: 'uppercase', letterSpacing: '0.05em',
                         }}>{c.status}</span>
+
+                        {/* AI Verification pill */}
+                        {c.ai_mode && (
+                          <span style={{
+                            position: 'absolute', bottom: '0.75rem', left: '0.75rem',
+                            background: c.ai_verified === true ? 'rgba(34,197,94,0.9)'
+                              : c.ai_user_override ? 'rgba(245,158,11,0.9)'
+                              : c.ai_verified === false ? 'rgba(239,68,68,0.85)'
+                              : 'rgba(100,116,139,0.85)',
+                            color: '#fff', fontSize: '0.6rem', fontWeight: 800,
+                            padding: '0.2rem 0.55rem', borderRadius: '999px',
+                            textTransform: 'uppercase', letterSpacing: '0.04em',
+                            backdropFilter: 'blur(4px)',
+                          }}>
+                            🤖 {c.ai_verified === true ? `AI ✅ ${c.ai_confidence}%`
+                              : c.ai_user_override ? 'AI ❌ → User Override'
+                              : c.ai_verified === false ? `AI ❌ ${c.ai_confidence}%`
+                              : 'Manual Review'}
+                          </span>
+                        )}
                       </div>
 
                       {/* Body */}
@@ -154,6 +174,16 @@ const AdminComplaints = () => {
                           <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 800, color: '#111', textTransform: 'uppercase' }}>
                             {c.area_name || 'Unknown Area'}
                           </div>
+                          {c.municipality && (
+                            <div style={{
+                              display: 'inline-block', padding: '0.2rem 0.6rem', background: '#fef2f2',
+                              border: '1px solid #fecaca', borderRadius: '6px', color: '#c62828',
+                              fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase',
+                              letterSpacing: '0.04em', marginTop: '0.4rem', marginBottom: '0.2rem'
+                            }}>
+                              🏛️ {c.municipality}
+                            </div>
+                          )}
                           <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600, marginTop: '2px' }}>
                             {c.type} • {new Date(c.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </div>
@@ -294,6 +324,71 @@ const AdminComplaints = () => {
                     <div style={{ background: '#fefce8', borderRadius: '12px', padding: '1rem', marginBottom: '1.25rem', border: '1px solid #fde68a' }}>
                       <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: '#a16207', letterSpacing: '0.08em', marginBottom: '0.4rem' }}>Additional Info</div>
                       <p style={{ fontSize: '0.85rem', color: '#78350f', lineHeight: 1.5, margin: 0 }}>{c.additional_info}</p>
+                    </div>
+                  )}
+
+                  {/* Municipality Info */}
+                  {c.municipality && (
+                    <div style={{ background: '#fef2f2', borderRadius: '12px', padding: '1rem', marginBottom: '1.25rem', border: '1px solid #fecaca' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: '#c62828', letterSpacing: '0.08em', marginBottom: '0.4rem' }}>Responsible Municipality</div>
+                      <p style={{ fontSize: '0.95rem', color: '#991b1b', fontWeight: 700, margin: 0 }}>🏛️ {c.municipality}</p>
+                    </div>
+                  )}
+
+                  {/* AI Verification Panel — visible to admin */}
+                  {c.ai_mode && (
+                    <div style={{
+                      background: 'linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%)',
+                      border: '1px solid #bfdbfe',
+                      borderRadius: '12px',
+                      padding: '1rem',
+                      marginBottom: '1.25rem',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                        <span style={{ fontSize: '1.1rem' }}>🤖</span>
+                        <h4 style={{
+                          fontFamily: 'var(--font-display)', fontSize: '0.75rem', fontWeight: 800,
+                          textTransform: 'uppercase', letterSpacing: '0.08em', color: '#1e40af', margin: 0,
+                        }}>AI Verification Report</h4>
+                        {c.ai_verified === true && (
+                          <span style={{ marginLeft: 'auto', background: '#dcfce7', color: '#166534', fontSize: '0.68rem', fontWeight: 800, padding: '0.2rem 0.6rem', borderRadius: '999px', border: '1px solid #86efac' }}>✅ VERIFIED</span>
+                        )}
+                        {c.ai_verified === false && (
+                          <span style={{ marginLeft: 'auto', background: '#fef3c7', color: '#92400e', fontSize: '0.68rem', fontWeight: 800, padding: '0.2rem 0.6rem', borderRadius: '999px', border: '1px solid #fde68a' }}>⚠️ NOT DETECTED</span>
+                        )}
+                        {c.ai_verified === null && (
+                          <span style={{ marginLeft: 'auto', background: '#f1f5f9', color: '#64748b', fontSize: '0.68rem', fontWeight: 800, padding: '0.2rem 0.6rem', borderRadius: '999px', border: '1px solid #cbd5e1' }}>🔄 MANUAL</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: '80px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.6rem', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '0.06em' }}>Confidence</div>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 900, color: '#111', marginTop: '0.15rem' }}>
+                            {c.ai_confidence != null ? `${c.ai_confidence}%` : 'N/A'}
+                          </div>
+                        </div>
+                        <div style={{ flex: 1, minWidth: '80px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.6rem', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '0.06em' }}>AI Severity</div>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 900, color: c.ai_severity === 'High' ? '#ef4444' : c.ai_severity === 'Medium' ? '#f59e0b' : '#22c55e', marginTop: '0.15rem' }}>
+                            {c.ai_severity || 'N/A'}
+                          </div>
+                        </div>
+                        <div style={{ flex: 1, minWidth: '80px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.6rem', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '0.06em' }}>User Override</div>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 900, color: c.ai_user_override ? '#f59e0b' : '#22c55e', marginTop: '0.15rem' }}>
+                            {c.ai_user_override ? '⚠️ Yes' : '—'}
+                          </div>
+                        </div>
+                      </div>
+                      {c.ai_user_override && (
+                        <div style={{
+                          marginTop: '0.75rem', padding: '0.5rem 0.75rem',
+                          background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px',
+                          fontSize: '0.78rem', color: '#92400e',
+                        }}>
+                          ⚠️ User overrode AI rejection — submitted despite AI not detecting garbage. Please review the image carefully.
+                        </div>
+                      )}
                     </div>
                   )}
 

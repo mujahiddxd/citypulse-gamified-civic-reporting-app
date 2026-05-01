@@ -24,12 +24,29 @@ const AdminLayout = ({ children, title }) => {
     document.body.style.background = '#f1f5f9';
     document.body.style.backgroundImage = 'none';
     document.body.style.padding = '0';
+
+    // STRICT SECURITY CHECK: Re-verify token on layout mount
+    const token = localStorage.getItem('citypulse_admin_token');
+    if (!token) {
+      navigate('/admin-login', { replace: true });
+    } else {
+      // Import verifyAdminToken dynamically or use it if available
+      import('../../pages/admin/AdminLogin').then(({ verifyAdminToken }) => {
+        verifyAdminToken(token).then(valid => {
+          if (!valid) {
+            localStorage.removeItem('citypulse_admin_token');
+            navigate('/admin-login', { replace: true });
+          }
+        });
+      });
+    }
+
     return () => {
       document.body.style.background = origBg;
       document.body.style.backgroundImage = origBgImage;
       document.body.style.padding = origPadding;
     };
-  }, []);
+  }, [navigate]);
 
   const handleLogout = () => {
     clearAdminToken();

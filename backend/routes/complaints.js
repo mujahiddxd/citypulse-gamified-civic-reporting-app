@@ -191,7 +191,8 @@ router.post('/', authenticate, [
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { type, description, latitude, longitude, severity, area_name, additional_info, is_anonymous, image_url } = req.body;
+  const { type, description, latitude, longitude, severity, area_name, municipality, additional_info, is_anonymous, image_url,
+    ai_verified, ai_confidence, ai_severity, ai_user_override, ai_mode } = req.body;
 
   // Insert the complaint — status starts as 'Pending' (awaiting admin review)
   const { data, error } = await supabase
@@ -204,10 +205,17 @@ router.post('/', authenticate, [
       longitude: parseFloat(longitude),
       severity: severity || 'Medium',
       area_name,
+      municipality,
       additional_info,
       is_anonymous: is_anonymous || false,
       image_url,
-      status: 'Pending'
+      status: 'Pending',
+      // AI verification metadata (nullable — only present when user ran AI check)
+      ai_verified: ai_verified ?? null,
+      ai_confidence: ai_confidence ?? null,
+      ai_severity: ai_severity ?? null,
+      ai_user_override: ai_user_override ?? false,
+      ai_mode: ai_mode ?? null,
     })
     .select()
     .single();

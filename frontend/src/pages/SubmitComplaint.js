@@ -6,6 +6,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import GarbageAIChecker from '../components/GarbageAIChecker';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -25,20 +26,55 @@ const MapClickHandler = ({ onLocationSelect }) => {
   return null;
 };
 
+const MUNICIPALITY_MAP = {
+  'Thane': 'Thane Municipal Corporation (TMC)',
+  'Mumbai': 'Brihanmumbai Municipal Corporation (BMC)',
+  'Mumbai City': 'Brihanmumbai Municipal Corporation (BMC)',
+  'Mumbai Suburban': 'Brihanmumbai Municipal Corporation (BMC)',
+  'Andheri': 'Brihanmumbai Municipal Corporation (BMC)',
+  'Bandra': 'Brihanmumbai Municipal Corporation (BMC)',
+  'Navi Mumbai': 'Navi Mumbai Municipal Corporation (NMMC)',
+  'Kalyan': 'Kalyan-Dombivli Municipal Corporation (KDMC)',
+  'Dombivli': 'Kalyan-Dombivli Municipal Corporation (KDMC)',
+  'Dombivli City': 'Kalyan-Dombivli Municipal Corporation (KDMC)',
+  'Ulhasnagar': 'Ulhasnagar Municipal Corporation (UMC)',
+  'Bhiwandi': 'Bhiwandi-Nizampur Municipal Corporation (BNMC)',
+  'Mira-Bhayandar': 'Mira-Bhayandar Municipal Corporation (MBMC)',
+  'Pune': 'Pune Municipal Corporation (PMC)',
+  'Pimpri-Chinchwad': 'Pimpri-Chinchwad Municipal Corporation (PCMC)',
+  'Bengaluru': 'Bruhat Bengaluru Mahanagara Palike (BBMP)',
+  'Bangalore': 'Bruhat Bengaluru Mahanagara Palike (BBMP)',
+  'New Delhi': 'Municipal Corporation of Delhi (MCD)',
+  'Delhi': 'Municipal Corporation of Delhi (MCD)',
+  'Chennai': 'Greater Chennai Corporation (GCC)',
+  'Hyderabad': 'Greater Hyderabad Municipal Corporation (GHMC)',
+  'Ahmedabad': 'Ahmedabad Municipal Corporation (AMC)',
+  'Kolkata': 'Kolkata Municipal Corporation (KMC)',
+  'Surat': 'Surat Municipal Corporation (SMC)',
+  'Lucknow': 'Lucknow Municipal Corporation (LMC)',
+  'Kanpur': 'Kanpur Municipal Corporation (KMC)',
+  'Nagpur': 'Nagpur Municipal Corporation (NMC)',
+  'Indore': 'Indore Municipal Corporation (IMC)',
+  'Thiruvananthapuram': 'Thiruvananthapuram Corporation',
+};
+
 const SubmitComplaint = () => {
   const { session } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     type: 'Garbage', description: '', severity: 'Medium',
     area_name: '', additional_info: '', is_anonymous: false,
+    municipality: '',
   });
   const [position, setPosition] = useState(null);
+  const [manualCoords, setManualCoords] = useState({ lat: '', lng: '' });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [locLoading, setLocLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [error, setError] = useState('');
+  const [aiResult, setAiResult] = useState(null);
   const [success, setSuccess] = useState(false);
 
   const [areaScore, setAreaScore] = useState(null);
@@ -48,6 +84,28 @@ const SubmitComplaint = () => {
     if (session?.access_token) localStorage.setItem('access_token', session.access_token);
   }, [session]);
 
+  const detectMunicipality = (city, district, state) => {
+    if (!city && !district) return 'Unknown Municipal Body';
+    
+    // 1. Check direct mapping for city/suburb
+    if (MUNICIPALITY_MAP[city]) return MUNICIPALITY_MAP[city];
+    
+    // 2. Check direct mapping for district
+    if (MUNICIPALITY_MAP[district]) return MUNICIPALITY_MAP[district];
+    
+    // 3. Fuzzy match / Search within names
+    const searchString = `${city} ${district}`.toLowerCase();
+    
+    if (searchString.includes('mumbai')) return 'Brihanmumbai Municipal Corporation (BMC)';
+    if (searchString.includes('thane')) return 'Thane Municipal Corporation (TMC)';
+    if (searchString.includes('kalyan') || searchString.includes('dombivli')) return 'Kalyan-Dombivli Municipal Corporation (KDMC)';
+    if (searchString.includes('pune')) return 'Pune Municipal Corporation (PMC)';
+    if (searchString.includes('bangalore') || searchString.includes('bengaluru')) return 'Bruhat Bengaluru Mahanagara Palike (BBMP)';
+    if (searchString.includes('delhi')) return 'Municipal Corporation of Delhi (MCD)';
+    
+    return `${city || district || 'Local'} Municipal Body`;
+  };
+
   const fetchAreaDetails = async (lat, lng) => {
     setFetchingLevel(true);
     try {
@@ -55,11 +113,29 @@ const SubmitComplaint = () => {
       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`);
       const data = await res.json();
 
-      const city = data.address?.city || data.address?.town || data.address?.village || data.address?.suburb || 'Unknown Area';
+      const address = data.address || {};
+      const suburb = address.suburb || address.neighbourhood || address.residential || '';
+      const town = address.city || address.town || address.village || '';
+      
+      // Combine suburb and town for a more specific area name
+      let areaName = 'Unknown Area';
+      if (suburb && town && suburb !== town) {
+        areaName = `${suburb}, ${town}`;
+      } else {
+        areaName = town || suburb || 'Unknown Area';
+      }
+
+      const district = address.state_district || address.county || '';
+      const state = address.state || '';
+
+      const municipality = detectMunicipality(town || suburb, district, state);
 
       // Update form
-      setForm(p => ({ ...p, area_name: city }));
+      setForm(p => ({ ...p, area_name: areaName, municipality: municipality }));
       if (errors.area_name) setErrors(p => ({ ...p, area_name: '' }));
+
+      // Update manual inputs if they are empty
+      setManualCoords({ lat: lat.toString(), lng: lng.toString() });
 
       // Fetch AQI from Open-Meteo
       let currentAqi = null;
@@ -89,9 +165,26 @@ const SubmitComplaint = () => {
 
   const handleLocationSelect = useCallback((latlng) => {
     setPosition(latlng);
+    setManualCoords({ lat: latlng.lat.toFixed(6), lng: latlng.lng.toFixed(6) });
     if (errors.location) setErrors(p => ({ ...p, location: '' }));
     fetchAreaDetails(latlng.lat, latlng.lng);
   }, [errors.location]);
+
+  const applyManualCoords = () => {
+    const lat = parseFloat(manualCoords.lat);
+    const lng = parseFloat(manualCoords.lng);
+    if (isNaN(lat) || isNaN(lng)) {
+      alert('Please enter valid numerical coordinates');
+      return;
+    }
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      alert('Coordinates out of range');
+      return;
+    }
+    const loc = { lat, lng };
+    setPosition(loc);
+    fetchAreaDetails(lat, lng);
+  };
 
   const useMyLocation = () => {
     if (!navigator.geolocation) return alert('Geolocation not supported by your browser');
@@ -100,6 +193,7 @@ const SubmitComplaint = () => {
       (pos) => {
         const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setPosition(loc);
+        setManualCoords({ lat: loc.lat.toFixed(6), lng: loc.lng.toFixed(6) });
         setLocLoading(false);
         fetchAreaDetails(loc.lat, loc.lng);
       },
@@ -120,7 +214,7 @@ const SubmitComplaint = () => {
   const validate = () => {
     const e = {};
     if (!form.description.trim() || form.description.trim().length < 10) e.description = 'Description must be at least 10 characters';
-    if (!position) e.location = 'Please click on the map or use your location';
+    if (!position) e.location = 'Please click on the map or enter coordinates';
     if (!form.area_name.trim()) e.area_name = 'Enter the area name';
     // Mandatory photo for Garbage complaints
     if (form.type === 'Garbage' && !imageFile) e.image = '📸 A photo is required for Garbage complaints';
@@ -158,11 +252,18 @@ const SubmitComplaint = () => {
         description: form.description.trim(),
         severity: form.severity,
         area_name: form.area_name.trim(),
+        municipality: form.municipality,
         additional_info: form.additional_info.trim(),
         is_anonymous: form.is_anonymous,
         latitude: position.lat,
         longitude: position.lng,
         image_url,
+        // AI verification metadata — stored for admin review
+        ai_verified: aiResult?.verified ?? null,
+        ai_confidence: aiResult?.confidence ?? null,
+        ai_severity: aiResult?.severity ?? null,
+        ai_user_override: aiResult?.userOverride ?? false,
+        ai_mode: aiResult?.mode ?? null,
       });
 
       setSuccess(true);
@@ -220,7 +321,17 @@ const SubmitComplaint = () => {
                 style={{ background: '#F8FAFC', border: '2px solid #111', borderRadius: '12px', padding: '1.25rem', boxShadow: '2px 2px 0px #111' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', textTransform: 'uppercase', color: '#6b7280', letterSpacing: '0.05em' }}>Area Quality Score</h3>
+                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', textTransform: 'uppercase', color: '#6b7280', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Responsible Body</h3>
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                      padding: '0.5rem 1rem', background: '#FEE2E2', border: '1px solid #FECACA',
+                      borderRadius: '8px', color: '#B91C1C', fontWeight: '900', fontSize: '0.95rem',
+                      fontFamily: 'var(--font-display)', marginBottom: '1rem',
+                      boxShadow: '0 2px 8px rgba(185, 28, 28, 0.1)'
+                    }}>
+                      🏛️ {form.municipality || 'Detecting Area...'}
+                    </div>
+                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', textTransform: 'uppercase', color: '#6b7280', letterSpacing: '0.05em' }}>Current Location</h3>
                     <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#111', fontFamily: 'var(--font-display)' }}>
                       {form.area_name}
                     </div>
@@ -346,6 +457,17 @@ const SubmitComplaint = () => {
                     <motion.img src={imagePreview} alt="Preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                       style={{ width: '100%', maxHeight: '180px', objectFit: 'cover', borderRadius: '8px', marginTop: '0.5rem' }} />
                   )}
+
+                  {/* AI Garbage Photo Checker — appears after image upload */}
+                  {imageFile && imagePreview && (
+                    <div style={{ marginTop: '0.75rem' }}>
+                      <GarbageAIChecker
+                        imageFile={imageFile}
+                        imagePreview={imagePreview}
+                        onResult={(result) => setAiResult(result)}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#374151', fontSize: '0.9rem' }}>
@@ -356,7 +478,7 @@ const SubmitComplaint = () => {
             </div>
           </div>
 
-          {/* RIGHT: Map */}
+          {/* RIGHT: Map & Coordinates */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
@@ -373,6 +495,24 @@ const SubmitComplaint = () => {
                 </button>
               </div>
 
+              {/* Manual Lat/Long Input */}
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', fontWeight: '800', display: 'block', marginBottom: '2px' }}>Latitude</label>
+                  <input type="text" value={manualCoords.lat} onChange={e => setManualCoords(p => ({ ...p, lat: e.target.value }))}
+                    style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }} placeholder="19.0760" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', fontWeight: '800', display: 'block', marginBottom: '2px' }}>Longitude</label>
+                  <input type="text" value={manualCoords.lng} onChange={e => setManualCoords(p => ({ ...p, lng: e.target.value }))}
+                    style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }} placeholder="72.8777" />
+                </div>
+                <button type="button" onClick={applyManualCoords}
+                  style={{ alignSelf: 'flex-end', padding: '0.45rem 0.75rem', borderRadius: '4px', background: '#1e293b', color: 'white', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '800' }}>
+                  APPLY
+                </button>
+              </div>
+
               {errors.location && (
                 <div style={{ background: '#FEE2E2', color: '#991B1B', padding: '0.5rem 0.75rem', borderRadius: '6px', fontSize: '0.8rem', marginBottom: '0.75rem' }}>
                   ⚠️ {errors.location}
@@ -380,7 +520,7 @@ const SubmitComplaint = () => {
               )}
 
               <p style={{ fontSize: '0.82rem', color: '#9ca3af', marginBottom: '0.75rem' }}>
-                Click anywhere on the map or use the button above
+                Click anywhere on the map or enter coordinates above
               </p>
 
               <div style={{ borderRadius: '8px', overflow: 'hidden', border: '2px solid', borderColor: errors.location ? '#DC2626' : '#e5e7eb' }}>
@@ -393,6 +533,7 @@ const SubmitComplaint = () => {
                         dragend: (e) => {
                           const latlng = e.target.getLatLng();
                           setPosition(latlng);
+                          setManualCoords({ lat: latlng.lat.toFixed(6), lng: latlng.lng.toFixed(6) });
                           fetchAreaDetails(latlng.lat, latlng.lng);
                         }
                       }}>
@@ -413,16 +554,47 @@ const SubmitComplaint = () => {
               )}
             </div>
 
-            <button type="submit" disabled={loading}
+            {/* AI Warning Banner — shown when AI didn't detect garbage and user hasn't overridden */}
+            {aiResult && aiResult.verified === false && !aiResult.userOverride && (
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{
+                  padding: '0.85rem 1rem',
+                  background: '#fffbeb',
+                  border: '2px solid #fde68a',
+                  borderRadius: '10px',
+                  marginBottom: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                }}
+              >
+                <span style={{ fontSize: '1.3rem' }}>⚠️</span>
+                <div style={{ fontSize: '0.82rem', color: '#92400e', lineHeight: 1.4 }}>
+                  <strong>AI Warning:</strong> The photo wasn't identified as garbage. Please confirm via the AI panel above before submitting.
+                </div>
+              </motion.div>
+            )}
+
+            <button type="submit" disabled={loading || (aiResult?.verified === false && !aiResult?.userOverride)}
               style={{
                 width: '100%', padding: '1rem', borderRadius: '10px', border: 'none',
-                background: loading ? '#9ca3af' : 'var(--primary-700)', color: 'white',
+                background: loading ? '#9ca3af'
+                  : (aiResult?.verified === false && !aiResult?.userOverride) ? '#d1d5db'
+                  : '#c62828',
+                color: 'white',
                 fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: '800',
-                textTransform: 'uppercase', letterSpacing: '0.08em', cursor: loading ? 'not-allowed' : 'pointer',
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+                cursor: (loading || (aiResult?.verified === false && !aiResult?.userOverride)) ? 'not-allowed' : 'pointer',
                 boxShadow: loading ? 'none' : '0 4px 14px rgba(198,40,40,0.35)',
                 transition: 'all 0.2s',
+                opacity: (aiResult?.verified === false && !aiResult?.userOverride) ? 0.6 : 1,
               }}>
-              {loading ? '⏳ Submitting Report...' : '🚀 Submit Report'}
+              {loading ? '⏳ Submitting Report...'
+                : (aiResult?.verified === false && !aiResult?.userOverride)
+                  ? '🔒 Confirm AI Override to Submit'
+                  : '🚀 Submit Report'}
             </button>
           </div>
         </div>

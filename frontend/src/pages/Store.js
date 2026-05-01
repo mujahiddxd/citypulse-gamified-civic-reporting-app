@@ -49,7 +49,7 @@ const TYPE_LABELS = {
 };
 
 const STORE_ITEMS = [
-    { id: 'theme-cyberpunk', name: 'Cyberpunk 2077', type: 'theme', value: 'cyberpunk', price: 800, icon: '🌃', description: 'High-contrast neon cyan and magenta with grid aesthetics.', rarity: 'Legendary' },
+    { id: 'theme-cyberpunk', name: 'Cyberpunk', type: 'theme', value: 'cyberpunk', price: 800, icon: '🌃', description: 'High-contrast neon cyan and magenta with grid aesthetics.', rarity: 'Legendary' },
     { id: 'theme-ocean', name: 'Deep Sea Ocean', type: 'theme', value: 'ocean', price: 350, icon: '🌊', description: 'Calming nautical blues and soft white accents.', rarity: 'Rare' },
     { id: 'theme-emerald', name: 'Emerald Forest', type: 'theme', value: 'emerald', price: 350, icon: '🌲', description: 'Earthy greens and natural textures for the eco-conscious.', rarity: 'Rare' },
     { id: 'theme-sunset', name: 'Sunset Smog', type: 'theme', value: 'sunset', price: 500, icon: '🌅', description: 'Warm amber and smoky purple gradients inspired by urban dusk.', rarity: 'Epic' },
@@ -57,6 +57,7 @@ const STORE_ITEMS = [
     { id: 'border-neon', name: 'Neon Red Aura', type: 'border', value: 'neon-aura', price: 150, icon: '🔥', description: 'A legendary glowing fire aura that surrounds your profile.', rarity: 'Epic' },
     { id: 'border-eco-shield', name: 'Eco Shield', type: 'border', value: 'eco-shield', price: 250, icon: '🛡️', description: 'A glowing green protective ring — badge of a true environmentalist.', rarity: 'Rare' },
     { id: 'border-recycler', name: 'Recycler Ring', type: 'border', value: 'recycler-ring', price: 200, icon: '♻️', description: 'An animated recycling symbol border for dedicated waste reporters.', rarity: 'Uncommon' },
+    { id: 'title-legend', name: 'Eco Legend', type: 'title', value: 'eco-legend', price: 1000, icon: '👑', description: 'The ultimate title for the saviors of the city.', rarity: 'Legendary' },
     { id: 'title-champion', name: 'City Champion', type: 'title', value: 'champion-title', price: 500, icon: '👑', description: 'An exclusive shimmering title for the top contributors.', rarity: 'Legendary' },
     { id: 'title-waste-warrior', name: 'Waste Warrior', type: 'title', value: 'waste-warrior', price: 300, icon: '⚔️', description: 'For those who fight the war on waste, one report at a time.', rarity: 'Rare' },
     { id: 'title-green-guardian', name: 'Green Guardian', type: 'title', value: 'green-guardian', price: 400, icon: '🌿', description: 'Protector of public spaces — awarded to consistent reporters.', rarity: 'Epic' },
