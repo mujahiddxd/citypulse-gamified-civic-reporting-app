@@ -68,7 +68,7 @@ import AdminUsers from './pages/admin/AdminUsers';
 import AdminFeedback from './pages/admin/AdminFeedback';
 import AdminPassGate from './pages/admin/AdminPassGate';
 // getAdminToken reads from localStorage; verifyAdminToken calls /api/admin-auth/verify
-import AdminLogin, { getAdminToken, verifyAdminToken } from './pages/admin/AdminLogin';
+import AdminLogin, { getAdminToken, verifyAdminToken, clearAdminToken } from './pages/admin/AdminLogin';
 import Store from './pages/Store';
 import Statistics from './pages/Statistics';
 import PublicReports from './pages/PublicReports';
@@ -88,18 +88,20 @@ const PrivateRoute = ({ children }) => {
 
 // ── AdminRoute ────────────────────────────────────────────────────────────────
 // Wraps admin pages with a check against the standalone admin JWT.
-// Completely separate from Supabase — does NOT use useAuth().
-// On first render, verifies the stored token with the backend.
+// The admin system is intentionally separate from Supabase Auth —
+// admins authenticate with a hardcoded ID+Password via /api/admin-auth/login,
+// which issues a signed JWT stored in localStorage as 'citypulse_admin_token'.
+// On each admin page load, this component verifies that JWT with the backend.
 const AdminRoute = ({ children }) => {
-  const [checking, setChecking] = React.useState(true); // True while verifying token
-  const [valid, setValid] = React.useState(false); // True if token is valid
+  const [checking, setChecking] = React.useState(true);
+  const [valid, setValid] = React.useState(false);
 
   React.useEffect(() => {
-    const token = getAdminToken(); // Reads 'citypulse_admin_token' from localStorage
-    if (!token) { setChecking(false); return; } // No token → skip verify, will redirect
+    const token = getAdminToken();
+    if (!token) { setChecking(false); return; }
 
-    // Call the backend to verify the token (checks expiry too)
     verifyAdminToken(token).then(ok => {
+      if (!ok) clearAdminToken(); // Clean up expired/invalid tokens
       setValid(ok);
       setChecking(false);
     });
@@ -107,7 +109,7 @@ const AdminRoute = ({ children }) => {
 
   if (checking) return <SkeletonDashboard />;
   if (!valid) return <Navigate to="/admin-login" replace />;
-  return children; // Token is valid → render the admin page
+  return children;
 };
 
 // ── AppContent ────────────────────────────────────────────────────────────────
