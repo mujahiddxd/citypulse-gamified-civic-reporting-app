@@ -131,6 +131,29 @@ router.patch('/complaints/:id/reject', requireOfficerOrAdmin, async (req, res) =
   res.json({ message: 'Complaint rejected', complaint: data });
 });
 
+// ── DELETE /api/admin/complaints/:id ──────────────────────────────────────────
+// Permanently deletes a complaint from the database.
+// Restricted to ADMIN ONLY (officers should only approve/reject).
+router.delete('/complaints/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  const { data, error } = await supabase
+    .from('complaints')
+    .delete()
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  
+  // Also recalculate area score if the complaint was approved
+  if (data?.status === 'Approved' && data?.area_name) {
+    await supabase.rpc('update_area_score', { p_area_name: data.area_name });
+  }
+
+  res.json({ message: 'Complaint deleted successfully', deleted: data });
+});
+
 // ── GET /api/admin/users ──────────────────────────────────────────────────────
 // Returns all registered users sorted by XP (highest first).
 // Used in the AdminUsers page to view and manage user roles.

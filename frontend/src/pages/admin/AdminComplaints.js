@@ -66,6 +66,22 @@ const AdminComplaints = () => {
     }
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('⚠️ Are you sure you want to PERMANENTLY delete this report? This cannot be undone.')) return;
+    setActionLoading(prev => ({ ...prev, [id]: 'delete' }));
+    try {
+      await api.delete(`/admin/complaints/${id}`);
+      setComplaints(prev => prev.filter(c => c.id !== id));
+      setTotal(t => t - 1);
+      setSelectedDetail(null);
+      setSelectedMapComplaint(null);
+    } catch (err) {
+      alert('Deletion failed. Ensure you have admin privileges.');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [id]: null }));
+    }
+  };
+
   return (
     <AdminLayout title="📋 Complaint Management">
       {/* Filters */}
@@ -243,6 +259,12 @@ const AdminComplaints = () => {
                             >{actionLoading[c.id] === 'reject' ? '...' : '❌ Reject'}</button>
                           </>
                         )}
+                        <button
+                          className="btn btn-sm"
+                          disabled={!!actionLoading[c.id]}
+                          onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }}
+                          style={{ flex: 0.4, justifyContent: 'center', background: '#fff', color: '#ef4444', border: '1px solid #fee2e2', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem' }}
+                        >{actionLoading[c.id] === 'delete' ? '...' : '🗑️'}</button>
                       </div>
                     </motion.div>
                   );
@@ -429,6 +451,18 @@ const AdminComplaints = () => {
                       >{actionLoading[c.id] === 'reject' ? 'Processing...' : '❌ Reject Report'}</button>
                     </div>
                   )}
+
+                  {/* Permanent Delete for Admin */}
+                  <div style={{ marginTop: '1.5rem', borderTop: '1px dashed #e2e8f0', paddingTop: '1.25rem' }}>
+                    <button
+                      disabled={!!actionLoading[c.id]}
+                      onClick={() => handleDelete(c.id)}
+                      style={{ width: '100%', padding: '0.75rem', background: '#fff', color: '#ef4444', border: '1px solid #fee2e2', borderRadius: '10px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                    >
+                      {actionLoading[c.id] === 'delete' ? 'Deleting...' : '🗑️ Permanently Delete Report'}
+                    </button>
+                    <p style={{ textAlign: 'center', fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.5rem' }}>Only administrators can permanently remove records.</p>
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
