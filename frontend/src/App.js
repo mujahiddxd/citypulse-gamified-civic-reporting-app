@@ -75,6 +75,8 @@ import PublicReports from './pages/PublicReports';
 import About from './pages/About';
 import Inventory from './pages/Inventory';
 import Rewards from './pages/Rewards';
+import WardsPage from './pages/WardsPage';
+import WardMapPage from './pages/WardMapPage';
 
 // ── PrivateRoute ──────────────────────────────────────────────────────────────
 // Wraps any route that requires a logged-in user.
@@ -93,22 +95,55 @@ const PrivateRoute = ({ children }) => {
 // which issues a signed JWT stored in localStorage as 'citypulse_admin_token'.
 // On each admin page load, this component verifies that JWT with the backend.
 const AdminRoute = ({ children }) => {
+  const { user, loading: authLoading } = useAuth();
   const [checking, setChecking] = React.useState(true);
-  const [valid, setValid] = React.useState(false);
+  const [isValid, setIsValid] = React.useState(false);
 
   React.useEffect(() => {
-    const token = getAdminToken();
-    if (!token) { setChecking(false); return; }
+    const verify = async () => {
+      // 1. Check if we have a standalone Admin JWT
+      const adminToken = getAdminToken();
+      if (adminToken) {
+        const ok = await verifyAdminToken(adminToken);
+        if (ok) {
+          setIsValid(true);
+          setChecking(false);
+          return;
+        } else {
+          clearAdminToken();
+        }
+      }
 
-    verifyAdminToken(token).then(ok => {
-      if (!ok) clearAdminToken(); // Clean up expired/invalid tokens
-      setValid(ok);
-      setChecking(false);
-    });
-  }, []);
+      // 2. If no valid Admin JWT, wait for Supabase auth to finish
+      if (!authLoading) {
+        const role = user?.role?.toLowerCase();
+        if (user && (role === 'admin' || role === 'officer')) {
+          setIsValid(true);
+        } else {
+          setIsValid(false);
+        }
+        setChecking(false);
+      }
+    };
 
-  if (checking) return <SkeletonDashboard />;
-  if (!valid) return <Navigate to="/admin-login" replace />;
+    verify();
+  }, [user, authLoading]);
+
+  // Show skeleton while either the standalone JWT is being verified OR Supabase is loading
+  if (checking || authLoading) {
+    return <SkeletonDashboard />;
+  }
+
+  // If not valid after all checks, redirect
+  if (!isValid) {
+    // If they are a regular user, send them to their dashboard
+    if (user && user.role === 'user') {
+      return <Navigate to="/dashboard" replace />;
+    }
+    // Otherwise, send to admin login portal
+    return <Navigate to="/admin-login" replace />;
+  }
+
   return children;
 };
 
@@ -140,6 +175,8 @@ const AppContent = () => {
         <Route path="/statistics" element={<Statistics />} />
         <Route path="/reports" element={<PublicReports />} />
         <Route path="/about" element={<About />} />
+        <Route path="/wards" element={<WardsPage />} />
+        <Route path="/ward-map" element={<WardMapPage />} />
 
         {/* Private routes — wrapped in PrivateRoute guard */}
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />

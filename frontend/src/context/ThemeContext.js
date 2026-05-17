@@ -56,6 +56,7 @@ export const ThemeProvider = ({ children }) => {
     const [mode, setMode] = useState(localStorage.getItem('mode') || 'dark');
     const [equippedBorder, setEquippedBorder] = useState(localStorage.getItem('equipped_border') || null);
     const [equippedTitle, setEquippedTitle] = useState(localStorage.getItem('equipped_title') || null);
+    const [equippedBadge, setEquippedBadge] = useState(localStorage.getItem('equipped_badge') || null);
 
     // ── Sync with Database (authoritative source) ──────────────────────────────
     // When the user object loads (or changes), read their inventory from the DB
@@ -67,9 +68,11 @@ export const ThemeProvider = ({ children }) => {
             setTheme('crimson');
             setEquippedBorder(null);
             setEquippedTitle(null);
+            setEquippedBadge(null);
             localStorage.removeItem('theme');
             localStorage.removeItem('equipped_border');
             localStorage.removeItem('equipped_title');
+            localStorage.removeItem('equipped_badge');
             return;
         }
 
@@ -79,10 +82,12 @@ export const ThemeProvider = ({ children }) => {
             const dbTheme = inventory.find(i => i.startsWith('EQUIPPED_THEME:'))?.split(':')[1];
             const dbBorder = inventory.find(i => i.startsWith('EQUIPPED_BORDER:'))?.split(':')[1];
             const dbTitle = inventory.find(i => i.startsWith('EQUIPPED_TITLE:'))?.split(':')[1];
+            const dbBadge = inventory.find(i => i.startsWith('EQUIPPED_BADGE:'))?.split(':')[1];
 
             if (dbTheme) setTheme(dbTheme);
             if (dbBorder) setEquippedBorder(dbBorder);
             if (dbTitle) setEquippedTitle(dbTitle);
+            if (dbBadge) setEquippedBadge(dbBadge);
         }
     }, [user]);
 
@@ -112,6 +117,12 @@ export const ThemeProvider = ({ children }) => {
         else localStorage.removeItem('equipped_title');
     }, [equippedTitle]);
 
+    // ── Persist badge selection to localStorage ────────────────────────────────
+    useEffect(() => {
+        if (equippedBadge) localStorage.setItem('equipped_badge', equippedBadge);
+        else localStorage.removeItem('equipped_badge');
+    }, [equippedBadge]);
+
     /**
      * toggleMode()
      * Flips between dark and light mode.
@@ -127,14 +138,15 @@ export const ThemeProvider = ({ children }) => {
      *   2. Calls the backend to persist the equipped tag in the DB inventory
      *   3. Updates the AuthContext user.inventory so other components see the change
      *
-     * type  — 'theme' | 'border' | 'title'
-     * value — the item name/value to equip (e.g. 'forest', 'gold-frame', 'Eco Hero')
+     * type  — 'theme' | 'border' | 'title' | 'badge'
+     * value — the item name/value to equip (e.g. 'forest', 'gold-frame', 'Eco Hero', 'golden-checkmark')
      */
     const equipItem = async (type, value) => {
         // Instant local update — don't wait for the network
         if (type === 'theme') setTheme(value);
         if (type === 'border') setEquippedBorder(value);
         if (type === 'title') setEquippedTitle(value);
+        if (type === 'badge') setEquippedBadge(value);
 
         // Persist to DB (only if user is logged in)
         if (user) {
@@ -161,13 +173,14 @@ export const ThemeProvider = ({ children }) => {
      * Theme reverts to 'crimson' (default); border/title become null.
      * Also removes the EQUIPPED_ tag from the DB inventory.
      *
-     * type — 'theme' | 'border' | 'title'
+     * type — 'theme' | 'border' | 'title' | 'badge'
      */
     const unequipItem = async (type) => {
         // Revert to defaults locally
         if (type === 'theme') setTheme('crimson');
         if (type === 'border') setEquippedBorder(null);
         if (type === 'title') setEquippedTitle(null);
+        if (type === 'badge') setEquippedBadge(null);
 
         if (user) {
             try {
@@ -184,7 +197,7 @@ export const ThemeProvider = ({ children }) => {
 
     return (
         <ThemeContext.Provider value={{
-            theme, mode, equippedBorder, equippedTitle,
+            theme, mode, equippedBorder, equippedTitle, equippedBadge,
             equipItem, unequipItem, toggleMode
         }}>
             {children}

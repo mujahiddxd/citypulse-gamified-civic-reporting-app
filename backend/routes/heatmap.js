@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
   // Fetch only the fields needed for the heatmap (no need for full complaint data)
   let query = supabase
     .from('complaints')
-    .select('latitude, longitude, severity, type, status, created_at, area_name, image_url');
+    .select('id, latitude, longitude, severity, type, status, created_at, area_name, image_url');
 
   // Apply optional filters
   if (type) query = query.eq('type', type);
@@ -50,11 +50,13 @@ router.get('/', async (req, res) => {
   // Transform DB rows into the format expected by Leaflet.heat:
   // { lat, lng, intensity } plus extra metadata for click popups
   const points = data.map(c => ({
+    id: c.id,
     lat: c.latitude,
     lng: c.longitude,
     intensity: severityWeights[c.severity] || 0.5, // Default 0.5 if severity is unknown
     severity: c.severity,
     type: c.type,
+    status: c.status,
     area_name: c.area_name,
     image_url: c.image_url
   }));

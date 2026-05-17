@@ -18,11 +18,11 @@ const RARITY = {
 // Generate 30 days of rewards
 const MONTHLY_REWARDS = Array.from({ length: 30 }, (_, i) => {
     const day = i + 1;
-    if (day === 30) return { day, name: 'Eco Legend', qty: 1, icon: '👑', rarity: 'LEGENDARY', isItem: true };
-    if (day % 7 === 0) return { day, name: 'Special Item', qty: 1, icon: '🎁', rarity: 'EPIC', isItem: true };
-    if (day % 5 === 0) return { day, name: 'Eco Crystal', qty: 100, icon: '💠', rarity: 'RARE' };
-    if (day % 2 === 0) return { day, name: 'XP Manual', qty: 50, icon: '📔', rarity: 'COMMON' };
-    return { day, name: 'Eco Shard', qty: 25, icon: '💎', rarity: 'COMMON' };
+    if (day === 30) return { day, name: 'Eco Legend', qty: 3, icon: '👑', rarity: 'LEGENDARY', isItem: true };
+    if (day % 7 === 0) return { day, name: 'Special Item', qty: 3, icon: '🎁', rarity: 'EPIC', isItem: true };
+    if (day % 5 === 0) return { day, name: 'Eco Crystal', qty: 300, icon: '💠', rarity: 'RARE' };
+    if (day % 2 === 0) return { day, name: 'XP Manual', qty: 150, icon: '📔', rarity: 'COMMON' };
+    return { day, name: 'Eco Shard', qty: 75, icon: '💎', rarity: 'COMMON' };
 });
 
 const Rewards = () => {
@@ -255,14 +255,14 @@ const Rewards = () => {
                                             border: '1px solid rgba(255,255,255,0.05)'
                                         }}>
                                             <div style={{ fontSize: '2.5rem', minWidth: '60px', textAlign: 'center' }}>
-                                                {task.id === 'view_heatmap' ? '🗺️' : task.id === 'upvote_reports' ? '👍' : task.id === 'submit_report' ? '🚨' : '💬'}
+                                                {task.id === 'view_heatmap' ? '🗺️' : task.id === 'view_leaderboard' ? '🏆' : task.id === 'submit_report' ? '🚨' : task.id === 'view_profile' ? '👤' : '💬'}
                                             </div>
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{task.label}</div>
                                                 <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>{task.desc}</div>
                                                 <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                    <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px' }}>
-                                                        <div style={{ width: `${(task.current_progress / (task.goal || 1)) * 100}%`, height: '100%', background: task.completed ? '#22c55e' : '#4b96ff', borderRadius: '3px' }} />
+                                                    <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                                                        <div style={{ width: `${Math.min(100, (task.current_progress / (task.goal || 1)) * 100)}%`, height: '100%', background: task.completed ? '#22c55e' : '#4b96ff', borderRadius: '3px' }} />
                                                     </div>
                                                     <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{task.current_progress}/{task.goal || 1}</span>
                                                 </div>
@@ -277,7 +277,7 @@ const Rewards = () => {
                                                 ) : task.can_claim ? (
                                                     <button onClick={() => handleClaimTask(task.id)} disabled={claiming === task.id} style={{ background: '#d3bc8e', color: '#1a1a1a', border: 'none', padding: '0.6rem 2rem', borderRadius: '6px', fontWeight: '900', cursor: 'pointer', boxShadow: '0 0 15px rgba(211, 188, 142, 0.3)', fontSize: '0.8rem' }}>Claim</button>
                                                 ) : (
-                                                    <button onClick={() => navigate(task.id === 'view_heatmap' ? '/heatmap' : '/reports')} style={{ background: 'transparent', color: '#4b96ff', border: '1.5px solid #4b96ff', padding: '0.5rem 2rem', borderRadius: '6px', fontWeight: '900', cursor: 'pointer', fontSize: '0.8rem' }}>Go</button>
+                                                    <button onClick={() => navigate(task.id === 'view_heatmap' ? '/heatmap' : task.id === 'view_leaderboard' ? '/leaderboard' : task.id === 'view_profile' ? `/profile/${user?.username}` : '/reports')} style={{ background: 'transparent', color: '#4b96ff', border: '1.5px solid #4b96ff', padding: '0.5rem 2rem', borderRadius: '6px', fontWeight: '900', cursor: 'pointer', fontSize: '0.8rem' }}>Go</button>
                                                 )}
                                             </div>
                                         </motion.div>

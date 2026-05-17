@@ -1,8 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { ProfileCard } from '../components/ui/ProfileCard';
 import { SkeletonPublicReports } from '../components/ui/SkeletonLoader';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const severityColor = (s) =>
     s === 'High' ? '#ef4444' : s === 'Medium' ? '#f59e0b' : '#22c55e';
@@ -18,6 +22,142 @@ const statusLabel = (s) => {
 const ReportModal = ({ report, onClose, user }) => {
     if (!report) return null;
     const status = statusLabel(report.status);
+
+    const [downloading, setDownloading] = useState(false);
+
+    const downloadReportPDF = async () => {
+        setDownloading(true);
+        try {
+            const JsPDF = jsPDF.jsPDF || jsPDF;
+            const doc = new JsPDF('p', 'mm', 'a4');
+            const W = 210, M = 15;
+            let y = M;
+
+            const sevCol = report.severity === 'High' ? [239,68,68] : report.severity === 'Medium' ? [245,158,11] : [34,197,94];
+            const staCol = report.status === 'resolved' ? [34,197,94] : report.status === 'in_progress' ? [139,92,246] : report.status === 'Approved' ? [59,130,246] : [245,158,11];
+
+            // ── Header ────────────────────────────────────────────────────────────
+            doc.setFillColor(15,23,42); doc.rect(0,0,W,48,'F');
+            doc.setFillColor(198,40,40); doc.rect(0,48,W,3,'F');
+            doc.setTextColor(255,220,43); doc.setFontSize(22);
+            doc.text('CITYPULSE', M, 18);
+            doc.setTextColor(255,255,255); doc.setFontSize(12);
+            doc.text('Personal Complaint Receipt', M, 28);
+            doc.setFontSize(8); doc.setTextColor(160,160,160);
+            doc.text(`Complaint ID: ${report.id}`, M, 36);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, M, 42);
+            doc.text('FOR MUNICIPALITY SUBMISSION', W-M, 42, { align: 'right' });
+            y = 60;
+
+            // ── Status & Severity Badges ───────────────────────────────────────
+            doc.setFillColor(...sevCol); doc.roundedRect(M, y, 40, 8, 2, 2, 'F');
+            doc.setTextColor(255,255,255); doc.setFontSize(9);
+            doc.text(`SEVERITY: ${(report.severity||'N/A').toUpperCase()}`, M+20, y+5.5, { align:'center' });
+
+            doc.setFillColor(...staCol); doc.roundedRect(M+45, y, 50, 8, 2, 2, 'F');
+            doc.text(`STATUS: ${(report.status||'Pending').toUpperCase()}`, M+70, y+5.5, { align:'center' });
+            y += 16;
+
+            // ── Complaint Details ─────────────────────────────────────────────
+            const field = (label, value, isLong=false) => {
+                if (y > 268) return;
+                doc.setFontSize(7); doc.setTextColor(100,116,139); doc.setFont(undefined,'bold');
+                doc.text(label.toUpperCase(), M, y);
+                doc.setFont(undefined,'normal'); doc.setFontSize(10); doc.setTextColor(15,23,42);
+                if (isLong) {
+                    const lines = doc.splitTextToSize(String(value||'N/A'), W-2*M);
+                    doc.text(lines, M, y+5); y += lines.length*5 + 10;
+                } else {
+                    doc.text(String(value||'N/A'), M, y+5); y += 13;
+                }
+                doc.setDrawColor(241,245,249); doc.line(M, y-2, W-M, y-2);
+            };
+
+            field('Area / Location', report.area_name || 'Unknown Area');
+            field('Complaint Type', report.type || 'Garbage');
+            field('Reported By', report.is_anonymous ? 'Anonymous Citizen' : (report.users?.username || user?.username || 'Citizen'));
+            field('Submission Date', new Date(report.created_at).toLocaleString('en-IN', { day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' }));
+            if (report.lat && report.lng) field('GPS Coordinates', `${parseFloat(report.lat).toFixed(6)}, ${parseFloat(report.lng).toFixed(6)}`);
+            field('Description', report.description || 'No description provided.', true);
+
+            // ── Photo Evidence ─────────────────────────────────────────────────
+            if (report.image_url) {
+                try {
+                    // Fetch image as blob → base64 (works for cross-origin Supabase URLs)
+                    const response = await fetch(report.image_url);
+                    const blob = await response.blob();
+                    const imgBase64 = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+
+                    // Determine image format from MIME type
+                    const mimeType = blob.type || 'image/jpeg';
+                    const fmt = mimeType.includes('png') ? 'PNG' : 'JPEG';
+
+                    // Section heading
+                    doc.setFontSize(7); doc.setTextColor(100,116,139); doc.setFont(undefined,'bold');
+                    doc.text('PHOTO EVIDENCE', M, y); y += 4;
+                    doc.setFont(undefined,'normal');
+
+                    // Border frame for photo
+                    const photoH = 75;
+                    if (y + photoH > 280) { doc.addPage(); y = M; }
+                    doc.setDrawColor(226,232,240); doc.setFillColor(248,250,252);
+                    doc.roundedRect(M, y, W-2*M, photoH, 2, 2, 'FD');
+                    doc.addImage(imgBase64, fmt, M, y, W-2*M, photoH, undefined, 'FAST');
+                    y += photoH + 6;
+                } catch(e) {
+                    // Fallback: placeholder box with image URL
+                    console.warn('Photo embed failed:', e);
+                    doc.setFillColor(241,245,249); doc.roundedRect(M, y, W-2*M, 16, 2, 2, 'F');
+                    doc.setDrawColor(203,213,225); doc.roundedRect(M, y, W-2*M, 16, 2, 2, 'S');
+                    doc.setFontSize(7); doc.setTextColor(100,116,139); doc.setFont(undefined,'bold');
+                    doc.text('PHOTO EVIDENCE', M+4, y+6);
+                    doc.setFont(undefined,'normal'); doc.setFontSize(7);
+                    doc.text(`URL: ${report.image_url}`, M+4, y+12);
+                    y += 20;
+                }
+            }
+
+            // ── Officer Remarks Box ───────────────────────────────────────────
+            if (y < 240) {
+                doc.setFillColor(255,251,235); doc.roundedRect(M,y,W-2*M,36,2,2,'F');
+                doc.setDrawColor(245,158,11); doc.roundedRect(M,y,W-2*M,36,2,2,'S');
+                doc.setFontSize(8); doc.setTextColor(120,53,15); doc.setFont(undefined,'bold');
+                doc.text('OFFICER REMARKS (To be filled by Municipality)', M+4, y+7); doc.setFont(undefined,'normal');
+                doc.setFontSize(7); doc.setTextColor(100,116,139);
+                doc.text('Action Taken:', M+4, y+14);
+                doc.text('Date of Action:', M+4, y+21);
+                doc.text('Officer Name & Signature:', M+4, y+28);
+                doc.text('______________________________', M+45, y+14);
+                doc.text('______________________________', M+45, y+21);
+                doc.text('__________________________', M+60, y+33);
+                y += 40;
+            }
+
+            // ── Verification Box ──────────────────────────────────────────────
+            if (y < 268) {
+                doc.setFillColor(240,253,244); doc.roundedRect(M,y,W-2*M,14,2,2,'F');
+                doc.setDrawColor(34,197,94); doc.roundedRect(M,y,W-2*M,14,2,2,'S');
+                doc.setFontSize(7); doc.setTextColor(20,83,45); doc.setFont(undefined,'bold');
+                doc.text('MUNICIPAL OFFICE STAMP & VERIFICATION', M+4, y+5); doc.setFont(undefined,'normal');
+                doc.setTextColor(100,116,139);
+                doc.text('Received by: _________________   Date: _________________   Ref No: _________________', M+4, y+11);
+            }
+
+            // ── Footer ────────────────────────────────────────────────────────
+            doc.setFillColor(15,23,42); doc.rect(0,285,W,12,'F');
+            doc.setTextColor(148,163,184); doc.setFontSize(7);
+            doc.text('CityPulse Civic Platform — Personal Complaint Receipt — Keep for your records', W/2, 290, { align:'center' });
+
+            const filename = `Complaint_${(report.area_name||'Report').replace(/[^a-z0-9]/gi,'_')}_${report.id?.slice(0,8)||'receipt'}.pdf`;
+            doc.save(filename);
+        } catch(e) { console.error('PDF error:', e); alert('PDF generation failed: ' + e.message); }
+        finally { setDownloading(false); }
+    };
 
     return (
         <AnimatePresence>
@@ -54,7 +194,7 @@ const ReportModal = ({ report, onClose, user }) => {
                     {/* Photo */}
                     <div style={{ height: '260px', background: '#f1f5f9', borderRadius: '20px 20px 0 0', overflow: 'hidden', flexShrink: 0 }}>
                         {report.image_url ? (
-                            <img src={report.image_url} alt="Report" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img className="report-modal-photo" src={report.image_url} alt="Report" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
                             <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#94a3b8' }}>
                                 <span style={{ fontSize: '4rem' }}>🗺️</span>
@@ -128,6 +268,28 @@ const ReportModal = ({ report, onClose, user }) => {
                                 💬 Community Comments
                             </h3>
                             <CommentThread complaintId={report.id} user={user} />
+                        </div>
+
+                        {/* Download PDF Button */}
+                        <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '2px solid #f1f5f9' }}>
+                            <button
+                                onClick={downloadReportPDF}
+                                disabled={downloading}
+                                style={{
+                                    width: '100%', padding: '0.9rem', borderRadius: '14px',
+                                    border: '3px solid #111', background: downloading ? '#94a3b8' : '#C62828',
+                                    color: '#fff', fontFamily: 'var(--font-display)', fontWeight: '900',
+                                    fontSize: '1rem', cursor: downloading ? 'not-allowed' : 'pointer',
+                                    boxShadow: downloading ? 'none' : '4px 4px 0 #111',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                                    transition: 'all 0.2s',
+                                }}
+                            >
+                                {downloading ? '⌛ Generating PDF...' : '📄 Download My Complaint Receipt (PDF)'}
+                            </button>
+                            <p style={{ textAlign:'center', fontSize:'0.75rem', color:'#94a3b8', marginTop:'8px', fontWeight:'600' }}>
+                                Includes complaint details, status &amp; officer remarks section for municipality submission.
+                            </p>
                         </div>
                     </div>
                 </motion.div>
@@ -417,30 +579,58 @@ const ReportCard = ({ report, delay, onViewReport }) => {
 // ── Public Reports Page ─────────────────────────────────────────────────────────
 const PublicReports = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
     const [typeFilter, setTypeFilter] = useState('');
+    const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [matchedUsers, setMatchedUsers] = useState([]);
+    const [viewType, setViewType] = useState('reports'); // 'reports' or 'citizens'
     const [selectedReport, setSelectedReport] = useState(null);
+
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(search), 500);
+        return () => clearTimeout(timer);
+    }, [search]);
 
     const fetchReports = useCallback(async () => {
         setLoading(true);
-        const start = Date.now();
         try {
             const params = new URLSearchParams();
             if (filter !== 'all') params.append('status', filter);
             if (typeFilter) params.append('type', typeFilter);
-            const { data } = await api.get(`/complaints/public?${params}`);
-            setReports(data || []);
+            if (debouncedSearch) params.append('search', debouncedSearch);
+            
+            // Parallel fetch reports and matching users (if searching)
+            const fetchers = [api.get(`/complaints/public?${params}`)];
+            if (debouncedSearch) {
+                fetchers.push(api.get(`/profile/search?q=${debouncedSearch}`));
+            }
+
+            const results = await Promise.all(fetchers);
+            setReports(results[0].data || []);
+            if (results[1]) setMatchedUsers(results[1].data || []);
+            else setMatchedUsers([]);
+
+            // Check if there's an ID in the URL to auto-open
+            const searchParams = new URLSearchParams(location.search);
+            const reportId = searchParams.get('id');
+            if (reportId && results[0].data) {
+                const found = results[0].data.find(r => r.id === reportId);
+                if (found) setSelectedReport(found);
+            }
         } catch (err) {
             console.error(err);
             setReports([]);
+            setMatchedUsers([]);
         } finally {
-            const elapsed = Date.now() - start;
-            if (elapsed < 2000) await new Promise(r => setTimeout(r, 2000 - elapsed));
             setLoading(false);
         }
-    }, [filter, typeFilter]);
+    }, [filter, typeFilter, debouncedSearch, location.search]);
 
     useEffect(() => { fetchReports(); }, [fetchReports]);
 
@@ -483,6 +673,26 @@ const PublicReports = () => {
                     {filterBtn('Approved', '✅ Approved')}
                     {filterBtn('in_progress', '🔄 In Progress')}
                     {filterBtn('resolved', '🏁 Resolved')}
+
+                    {/* Search Bar */}
+                    <div style={{ 
+                        position: 'relative', flex: 1, minWidth: '240px', marginLeft: '0.5rem'
+                    }}>
+                        <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '1.1rem', pointerEvents: 'none' }}>🔍</span>
+                        <input 
+                            type="text"
+                            placeholder="Search area or user..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            style={{
+                                width: '100%', padding: '0.65rem 1rem 0.65rem 2.8rem', borderRadius: '999px',
+                                border: '2px solid #111', fontFamily: 'var(--font-display)', fontWeight: '700',
+                                fontSize: '0.88rem', outline: 'none', boxShadow: '2px 2px 0px #111',
+                                boxSizing: 'border-box'
+                            }}
+                        />
+                    </div>
+
                     <div style={{ marginLeft: 'auto' }}>
                         <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
                             style={{
@@ -495,29 +705,112 @@ const PublicReports = () => {
                         </select>
                     </div>
                 </div>
+                
+                {/* View Switcher Tabs */}
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '2.5rem', borderBottom: '2px solid #e2e8f0', paddingBottom: '1rem' }}>
+                    <button 
+                        onClick={() => setViewType('reports')}
+                        style={{
+                            padding: '0.75rem 1.5rem', borderRadius: '12px', border: 'none',
+                            fontFamily: 'var(--font-display)', fontWeight: '800', fontSize: '1rem',
+                            cursor: 'pointer', transition: 'all 0.3s',
+                            background: viewType === 'reports' ? 'var(--accent)' : 'transparent',
+                            color: '#111',
+                            boxShadow: viewType === 'reports' ? '4px 4px 0px #111' : 'none',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem'
+                        }}
+                    >
+                        📄 Reports 
+                        <span style={{ fontSize: '0.8rem', background: '#111', color: '#fff', padding: '2px 8px', borderRadius: '999px', marginLeft: '0.5rem' }}>
+                            {reports.length}
+                        </span>
+                    </button>
+                    <button 
+                        onClick={() => setViewType('citizens')}
+                        style={{
+                            padding: '0.75rem 1.5rem', borderRadius: '12px', border: 'none',
+                            fontFamily: 'var(--font-display)', fontWeight: '800', fontSize: '1rem',
+                            cursor: 'pointer', transition: 'all 0.3s',
+                            background: viewType === 'citizens' ? 'var(--accent)' : 'transparent',
+                            color: '#111',
+                            boxShadow: viewType === 'citizens' ? '4px 4px 0px #111' : 'none',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem'
+                        }}
+                    >
+                        👥 Citizens
+                        {matchedUsers.length > 0 && (
+                            <span style={{ fontSize: '0.8rem', background: '#111', color: '#fff', padding: '2px 8px', borderRadius: '999px', marginLeft: '0.5rem' }}>
+                                {matchedUsers.length}
+                            </span>
+                        )}
+                    </button>
+                </div>
 
-                {!loading && (
-                    <div style={{ marginBottom: '1.5rem', color: '#64748b', fontWeight: '700', fontSize: '0.9rem' }}>
-                        Showing {reports.length} report{reports.length !== 1 ? 's' : ''}
-                    </div>
-                )}
+                <AnimatePresence mode="wait">
+                    {viewType === 'citizens' ? (
+                        <motion.div 
+                            key="citizens-view"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                        >
+                            {!loading && matchedUsers.length > 0 ? (
+                                <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                                    {matchedUsers.map((u, i) => (
+                                        <div 
+                                            key={u.id} 
+                                            onClick={() => navigate(`/profile/${u.username}`)}
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            <ProfileCard 
+                                                name={u.username}
+                                                handle={u.username}
+                                                title={u.role === 'admin' ? '🛡️ Administrator' : u.role === 'officer' ? '👮 Official' : `🌟 Level ${u.level} Citizen`}
+                                                status={u.xp > 1000 ? '🔥 Elite Contributor' : 'Active'}
+                                                avatarUrl={`https://ui-avatars.com/api/?name=${u.username}&background=random&size=128`}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : !loading ? (
+                                <div style={{ textAlign: 'center', padding: '5rem 0', color: '#94a3b8' }}>
+                                    <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔍</div>
+                                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: '700' }}>No citizens found</div>
+                                    <p>Try searching for a different name above.</p>
+                                </div>
+                            ) : null}
+                        </motion.div>
+                    ) : (
+                        <motion.div 
+                            key="reports-view"
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 20 }}
+                        >
+                            {!loading && (
+                                <div style={{ marginBottom: '1.5rem', color: '#64748b', fontWeight: '700', fontSize: '0.9rem' }}>
+                                    Showing {reports.length} report{reports.length !== 1 ? 's' : ''} found
+                                </div>
+                            )}
 
-                {/* Grid */}
-                {loading ? (
-                    <SkeletonPublicReports />
-                ) : reports.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '5rem 0', color: '#94a3b8' }}>
-                        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🌱</div>
-                        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: '700' }}>No reports found</div>
-                        <p>Try changing your filters above.</p>
-                    </div>
-                ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
-                        {reports.map((r, i) => (
-                            <ReportCard key={r.id || i} report={r} delay={i * 0.04} onViewReport={setSelectedReport} />
-                        ))}
-                    </div>
-                )}
+                            {loading ? (
+                                <SkeletonPublicReports />
+                            ) : reports.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '5rem 0', color: '#94a3b8' }}>
+                                    <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🌱</div>
+                                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: '700' }}>No reports found</div>
+                                    <p>Try changing your filters or search term above.</p>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                                    {reports.map((r, i) => (
+                                        <ReportCard key={r.id || i} report={r} delay={i * 0.04} onViewReport={setSelectedReport} />
+                                    ))}
+                                </div>
+                            )}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             {/* Detail Modal */}

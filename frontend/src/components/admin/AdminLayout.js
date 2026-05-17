@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { clearAdminToken } from '../../pages/admin/AdminLogin';
+import { useAuth } from '../../context/AuthContext';
 
 const ADMIN_LINKS = [
   { path: '/admin', label: 'Overview', icon: '📊', exact: true },
@@ -27,10 +28,24 @@ const AdminLayout = ({ children, title }) => {
 
     // STRICT SECURITY CHECK: Re-verify token on layout mount
     const token = localStorage.getItem('citypulse_admin_token');
+    
+    // We can't use useAuth here easily as it's a lifecycle effect, 
+    // but the AdminRoute guard in App.js handles the primary check.
+    // This is a secondary "fail-safe" check.
     if (!token) {
-      navigate('/admin-login', { replace: true });
+      // If no admin token, check if we have a supabase user with admin role
+      // This is a bit tricky without hooks, but we can check the API
+      import('../../utils/api').then(({ default: api }) => {
+        api.get('/auth/me').then(res => {
+          const user = res.data;
+          if (!user || (user.role !== 'admin' && user.role !== 'officer')) {
+            navigate('/admin-login', { replace: true });
+          }
+        }).catch(() => {
+          navigate('/admin-login', { replace: true });
+        });
+      });
     } else {
-      // Import verifyAdminToken dynamically or use it if available
       import('../../pages/admin/AdminLogin').then(({ verifyAdminToken }) => {
         verifyAdminToken(token).then(valid => {
           if (!valid) {
@@ -47,6 +62,16 @@ const AdminLayout = ({ children, title }) => {
       document.body.style.padding = origPadding;
     };
   }, [navigate]);
+
+  const { user } = useAuth();
+
+  const filteredLinks = ADMIN_LINKS.filter(link => {
+    const role = user?.role?.toLowerCase();
+    if (role === 'officer') {
+      return ['Complaints'].includes(link.label);
+    }
+    return true; // Admins see everything
+  });
 
   const handleLogout = () => {
     clearAdminToken();
@@ -86,14 +111,14 @@ const AdminLayout = ({ children, title }) => {
             width: '36px', height: '36px', borderRadius: '10px',
             background: '#C62828', display: 'flex', alignItems: 'center',
             justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0,
-          }}>🛡️</div>
+          }}>{user?.role?.toLowerCase() === 'admin' ? '🛡️' : '👨‍✈️'}</div>
           {sidebarOpen && (
             <div>
               <div style={{ fontFamily: 'var(--font-display)', fontWeight: '900', color: '#fff', fontSize: '1rem', lineHeight: 1 }}>
                 City<span style={{ color: '#FFDC2B' }}>Pulse</span>
               </div>
               <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.65rem', letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: '2px' }}>
-                Admin Portal
+                {user?.role?.toLowerCase() === 'admin' ? 'Admin Portal' : 'Officer Hub'}
               </div>
             </div>
           )}
@@ -101,7 +126,7 @@ const AdminLayout = ({ children, title }) => {
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: '0.75rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          {ADMIN_LINKS.map(({ path, label, icon, exact }) => {
+          {filteredLinks.map(({ path, label, icon, exact }) => {
             const active = exact ? location.pathname === path : location.pathname.startsWith(path);
             return (
               <Link key={path} to={path} title={label} style={{

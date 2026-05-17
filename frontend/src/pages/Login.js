@@ -2,24 +2,42 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import '../styles/Login.css';
 
 export const Login = () => {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showAnimation, setShowAnimation] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { supabase, user } = useAuth();
   const navigate = useNavigate();
 
   React.useEffect(() => {
-    if (user) {
-      if (user.role === 'admin' || user.role === 'officer') {
+    // If we were authenticating and the user profile has now loaded (not the fallback 'User')
+    if (isAuthenticating && user && user.username !== 'User') {
+      const timer = setTimeout(() => {
+        setIsAuthenticating(false);
+        setShowAnimation(false);
+      }, 1500); // Small buffer for the animation
+      return () => clearTimeout(timer);
+    }
+  }, [user, isAuthenticating]);
+
+  React.useEffect(() => {
+    // Final redirection once animation is done and role is known
+    if (user && user.role && !showAnimation && !isAuthenticating) {
+      const role = user.role.toLowerCase();
+      if (role === 'admin') {
         navigate('/admin');
+      } else if (role === 'officer') {
+        navigate('/admin/complaints');
       } else {
         navigate('/dashboard');
       }
     }
-  }, [user, navigate]);
+  }, [user, navigate, showAnimation, isAuthenticating]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,15 +53,37 @@ export const Login = () => {
         return;
       }
 
-      // Sign-in succeeded! AuthContext onAuthStateChange will fire,
-      // load the user profile, and the useEffect above will auto-navigate.
-      // Safety: if AuthContext hasn't redirected within 6s, force it.
-      setTimeout(() => navigate('/dashboard'), 6000);
+      // Start the animation and wait for the profile to load
+      setIsAuthenticating(true);
+      setShowAnimation(true);
+
     } catch (err) {
       setError('Something went wrong. Please try again.');
       setLoading(false);
     }
   };
+
+  if (showAnimation) {
+    return (
+      <div className="login-container">
+        <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="login-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
+          <div style={{ width: '250px', height: '250px', marginBottom: '1rem' }}>
+            <DotLottieReact
+              src="https://assets8.lottiefiles.com/packages/lf20_uUiMgkSnl3.json"
+              loop
+              autoplay
+            />
+          </div>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', textTransform: 'uppercase', color: 'var(--text-primary)', textAlign: 'center', margin: '0' }}>
+            Successfully Logged In!
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontWeight: 'bold', fontSize: '1rem' }}>
+            Fetching your data... please wait.
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="login-container">
@@ -91,7 +131,7 @@ export const Login = () => {
           <div style={{ background: 'rgba(198,40,40,0.1)', border: '1px solid rgba(198,40,40,0.2)', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '1.2rem' }}>🛡️</span>
             <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Admin Control Panel</span>
-            <Link to="/admin" style={{ marginLeft: '1rem', color: 'var(--red-400)', fontWeight: 'bold', fontSize: '0.85rem' }}>ENTER →</Link>
+            <Link to="/admin-login" style={{ marginLeft: '1rem', color: 'var(--red-400)', fontWeight: 'bold', fontSize: '0.85rem' }}>ENTER →</Link>
           </div>
         </div>
       </motion.div>

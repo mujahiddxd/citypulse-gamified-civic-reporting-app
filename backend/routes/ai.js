@@ -341,4 +341,156 @@ router.post('/analyze-garbage', authenticate, async (req, res) => {
   }
 });
 
+// ── POST /api/ai/analyze-batch ──────────────────────────────────────────────
+// Analyze MULTIPLE images and compute a similarity/consistency score.
+// Tells the user if all photos look like they're from the same scene.
+//
+// Body: { images: ["data:image/jpeg;base64,...", ...] }
+// Returns: { results: [...perPhoto], similarity: { score, verdict, details } }
+router.post('/analyze-batch', authenticate, async (req, res) => {
+  try {
+    const { images } = req.body;
+
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({ error: 'No images provided' });
+    }
+
+    const HF_API_KEY = process.env.HF_API_KEY;
+
+    if (!HF_API_KEY) {
+      // Return fallback for all images
+      const fallbackResults = images.map((_, i) => ({
+        index: i,
+        verified: null,
+        confidence: 0,
+        severity: null,
+        statement: 'AI analysis unavailable. Admin will review manually.',
+        labels: [],
+        mode: 'admin_fallback',
+        ai_available: false,
+      }));
+      return res.json({
+        results: fallbackResults,
+        similarity: { score: 0, verdict: 'unknown', details: 'AI unavailable' },
+      });
+    }
+
+    // Analyze each image in parallel
+    const analyzeOne = async (imageData, index) => {
+      try {
+        const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+
+        const hfResponse = await fetch(
+          'https://router.huggingface.co/hf-inference/models/google/vit-base-patch16-224',
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${HF_API_KEY}`,
+              'Content-Type': 'application/octet-stream',
+            },
+            body: imageBuffer,
+          }
+        );
+
+        if (!hfResponse.ok) {
+          return {
+            index,
+            verified: null, confidence: 0, severity: null,
+            statement: hfResponse.status === 503
+              ? 'AI model warming up — try again shortly.'
+              : 'AI analysis failed for this photo.',
+            labels: [], matched_labels: [],
+            mode: hfResponse.status === 503 ? 'model_loading' : 'admin_fallback',
+            ai_available: false, rawLabels: [],
+          };
+        }
+
+        const classificationResults = await hfResponse.json();
+        const analysis = analyzeClassificationResults(classificationResults);
+
+        return {
+          index,
+          verified: analysis.isGarbage,
+          confidence: analysis.confidence,
+          severity: analysis.severity,
+          statement: analysis.statement,
+          labels: analysis.topLabels,
+          matched_labels: analysis.matchedLabels,
+          mode: 'ai_analyzed',
+          ai_available: true,
+          rawLabels: (classificationResults || []).map(r => ({
+            label: (r.label || '').toLowerCase(),
+            score: r.score || 0,
+          })),
+        };
+      } catch (err) {
+        return {
+          index,
+          verified: null, confidence: 0, severity: null,
+          statement: 'Analysis error for this photo.',
+          labels: [], matched_labels: [],
+          mode: 'admin_fallback', ai_available: false, rawLabels: [],
+        };
+      }
+    };
+
+    const results = await Promise.all(images.map((img, i) => analyzeOne(img, i)));
+
+    // ── Similarity Calculation ──
+    // Compare the label distributions of all photo pairs.
+    // High overlap = same scene. Low overlap = different scenes / potential fraud.
+    let similarity = { score: 100, verdict: 'consistent', details: 'Single photo — no comparison needed.' };
+
+    if (results.length >= 2) {
+      const availableResults = results.filter(r => r.ai_available && r.rawLabels.length > 0);
+
+      if (availableResults.length >= 2) {
+        // For each pair, compute Jaccard-like similarity on top-5 label sets
+        const pairScores = [];
+        for (let i = 0; i < availableResults.length; i++) {
+          for (let j = i + 1; j < availableResults.length; j++) {
+            const setA = new Set(availableResults[i].rawLabels.slice(0, 5).map(l => l.label));
+            const setB = new Set(availableResults[j].rawLabels.slice(0, 5).map(l => l.label));
+            const intersection = [...setA].filter(x => setB.has(x)).length;
+            const union = new Set([...setA, ...setB]).size;
+            const jaccardScore = union > 0 ? Math.round((intersection / union) * 100) : 0;
+            pairScores.push(jaccardScore);
+          }
+        }
+
+        const avgSimilarity = Math.round(pairScores.reduce((a, b) => a + b, 0) / pairScores.length);
+
+        let verdict, details;
+        if (avgSimilarity >= 60) {
+          verdict = 'consistent';
+          details = `Photos appear to be from the same scene (${avgSimilarity}% label overlap). Good evidence quality.`;
+        } else if (avgSimilarity >= 30) {
+          verdict = 'partial';
+          details = `Photos share some common elements (${avgSimilarity}% overlap). They may be from slightly different angles.`;
+        } else {
+          verdict = 'inconsistent';
+          details = `Photos appear quite different (${avgSimilarity}% overlap). They may not be from the same location.`;
+        }
+
+        similarity = { score: avgSimilarity, verdict, details };
+      } else {
+        similarity = { score: 0, verdict: 'unknown', details: 'AI could not analyze enough photos to compare.' };
+      }
+    }
+
+    // Strip internal rawLabels from the response
+    const cleanResults = results.map(({ rawLabels, ...rest }) => rest);
+
+    res.json({ results: cleanResults, similarity });
+
+  } catch (err) {
+    console.error('Batch AI analysis error:', err);
+    res.json({
+      results: [],
+      similarity: { score: 0, verdict: 'unknown', details: 'Server error during analysis.' },
+    });
+  }
+});
+
 module.exports = router;

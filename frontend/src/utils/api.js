@@ -42,9 +42,16 @@ api.interceptors.request.use((config) => {
   // Detect if this request is targeting an admin-specific endpoint
   const isAdminApiCall = config.url?.startsWith('/admin') || config.url?.startsWith('/analytics');
 
-  // For admin routes: prefer the admin JWT. For regular routes: prefer Supabase token.
-  // Falls back to adminJwt if supabaseToken is absent (handles edge cases).
-  const token = (isAdminApiCall && adminJwt) ? adminJwt : (supabaseToken || adminJwt);
+  // For admin routes: prefer adminJwt, but allow supabaseToken (for Officers).
+  // For regular routes: prefer supabaseToken.
+  // Only send Admin JWT to specific admin/analytics endpoints.
+  // Sending it to regular auth/profile routes causes Supabase to reject the request.
+  let token = null;
+  if (isAdminApiCall) {
+    token = adminJwt || supabaseToken;
+  } else {
+    token = supabaseToken; // Never send adminJwt to public/regular routes
+  }
 
   if (token) {
     // Attach the token as a Bearer token in the Authorization header

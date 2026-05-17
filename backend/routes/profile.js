@@ -26,54 +26,20 @@ const supabase = require('../utils/supabase');
 const { authenticate } = require('../middleware/auth');
 const router = express.Router();
 
-// ── GET /api/profile/:username ────────────────────────────────────────────────
-// Public-facing profile page. Accessible without login.
-// Fetches the user by username and aggregates their stats in parallel.
-router.get('/:username', async (req, res) => {
-  // Find user by username (not by ID, since URLs show usernames)
-  const { data: user, error } = await supabase
+// ── GET /api/profile/search ──────────────────────────────────────────────────
+// Returns users matching a search query. Used for the community feed search.
+router.get('/search', async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.json([]);
+
+  const { data, error } = await supabase
     .from('users')
-    .select('id, username, xp, level, created_at, inventory')
-    .eq('username', req.params.username)
-    .single();
+    .select('id, username, xp, level, role')
+    .ilike('username', `%${q}%`)
+    .limit(5); // Limit to top 5 matches for UI clarity
 
-  if (error || !user) return res.status(404).json({ error: 'User not found' });
-
-  // Run all aggregate queries in parallel (Promise.all is much faster than sequential awaits)
-  const [
-    { count: totalComplaints },     // Total complaints submitted (all statuses)
-    { count: approvedComplaints },  // Only approved complaints
-    { data: badges },               // All badges with earned date
-    { data: rankData }              // All users sorted by XP (to determine this user's rank)
-  ] = await Promise.all([
-    supabase.from('complaints').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
-    supabase.from('complaints').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'Approved'),
-    supabase.from('user_badges').select('badges (name, description, icon), earned_at').eq('user_id', user.id),
-    supabase.from('users').select('id').order('xp', { ascending: false })
-  ]);
-
-  // Find this user's position (1-indexed rank) among all users
-  const rank = rankData?.findIndex(u => u.id === user.id) + 1;
-
-  // ── Level Progress Calculation ──────────────────────────────────────────────
-  // Level formula: Level = floor(sqrt(XP/100)) + 1
-  // So: Level N starts at XP = (N-1)² × 100
-  //     Level N+1 starts at XP = N² × 100
-  const xpForNextLevel = (user.level) * (user.level) * 100;
-  const xpForCurrentLevel = (user.level - 1) * (user.level - 1) * 100;
-  // Percentage of the way through the current level (0–100)
-  const progress = ((user.xp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100;
-
-  res.json({
-    ...user,
-    totalComplaints,
-    approvedComplaints,
-    // Flatten the nested join structure: badges (name, description, icon, earned_at)
-    badges: badges?.map(b => ({ ...b.badges, earned_at: b.earned_at })) || [],
-    rank,
-    levelProgress: Math.min(100, Math.max(0, progress)), // Clamped 0–100
-    xpForNextLevel
-  });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
 });
 
 // ── GET /api/profile/me/xp-history ───────────────────────────────────────────
@@ -110,6 +76,46 @@ router.post('/me/leaderboard-optin', authenticate, async (req, res) => {
   res.json({ leaderboard_opt_in: data.leaderboard_opt_in });
 });
 
+// ── PUT /api/profile/me ──────────────────────────────────────────────────────
+// Updates the logged-in user's profile information.
+// Supports updating bio and tagline with a built-in profanity filter.
+router.put('/me', authenticate, async (req, res) => {
+  const { bio, tagline } = req.body;
+
+  // Profanity Filter (Basic list including English and common Hindi/Hinglish terms)
+  const badWords = [
+    'f*ck', 'sh*t', 'b*tch', 'a**hole', 'd*ck', // English
+    'bhosadi', 'mc', 'bc', 'behenchod', 'madarchod', 'chutiya', 'gaand', 'l*nd' // Common Gaalis
+  ];
+
+  const content = `${bio} ${tagline}`.toLowerCase();
+  const hasProfanity = badWords.some(word => {
+    const regex = new RegExp(`\\b${word.replace(/\*/g, '.')}\\b`, 'i');
+    return regex.test(content);
+  });
+
+  if (hasProfanity) {
+    return res.status(400).json({ 
+        error: 'Please use respectful language. Profanity is not allowed in CityPulse profiles.' 
+    });
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .update({ bio, tagline })
+    .eq('id', req.user.id)
+    .select('bio, tagline')
+    .single();
+
+  if (error) {
+    if (error.message.includes('column "bio" of relation "users" does not exist')) {
+      return res.status(400).json({ error: 'Profile editing is being enabled by the administrator. Please try again soon!' });
+    }
+    return res.status(500).json({ error: error.message });
+  }
+  res.json(data);
+});
+
 // ── GET /api/profile/me ───────────────────────────────────────────────────────
 // Returns the authenticated user's own profile (private fields included).
 // Used on app boot and after the user makes changes to see their current stats.
@@ -122,6 +128,96 @@ router.get('/me', authenticate, async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
+});
+
+// ── GET /api/profile/:username ────────────────────────────────────────────────
+// Public-facing profile page. Accessible without login.
+// Fetches the user by username and aggregates their stats in parallel.
+router.get('/:username', async (req, res) => {
+  // Find user by username
+  let query = supabase
+    .from('users')
+    .select('id, username, xp, level, created_at, inventory, bio, tagline')
+    .eq('username', req.params.username)
+    .single();
+
+  let { data: user, error } = await query;
+
+  if (error && error.message.includes('column users.bio does not exist')) {
+    const fallback = await supabase
+      .from('users')
+      .select('id, username, xp, level, created_at, inventory')
+      .eq('username', req.params.username)
+      .single();
+    user = fallback.data;
+    error = fallback.error;
+  }
+
+  if (error || !user) return res.status(404).json({ error: 'User not found' });
+
+  // Run all aggregate queries in parallel
+  const [
+    { count: totalComplaints },
+    { count: approvedComplaints },
+    { data: badges },
+    { data: rankData },
+    { data: recentComplaints }
+  ] = await Promise.all([
+    supabase.from('complaints').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+    supabase.from('complaints').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'Approved'),
+    supabase.from('user_badges').select('badges (name, description, icon), earned_at').eq('user_id', user.id),
+    supabase.from('users').select('id').order('xp', { ascending: false }),
+    supabase.from('complaints').select('created_at, municipality').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5)
+  ]);
+
+  const rank = rankData?.findIndex(u => u.id === user.id) + 1;
+
+  // Level Progress Calculation
+  const xpForNextLevel = (user.level) * (user.level) * 100;
+  const xpForCurrentLevel = (user.level - 1) * (user.level - 1) * 100;
+  const progress = ((user.xp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100;
+
+  // Generate dynamic activities
+  const activities = [];
+  
+  // 1. Join Date
+  activities.push({
+    label: 'Joined the community',
+    date: new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    timestamp: new Date(user.created_at).getTime()
+  });
+
+  // 2. Recent Reports
+  recentComplaints?.forEach(c => {
+    activities.push({
+      label: `Submitted a report in ${c.municipality || 'the city'}`,
+      date: new Date(c.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
+      timestamp: new Date(c.created_at).getTime()
+    });
+  });
+
+  // 3. Badges Earned
+  badges?.forEach(b => {
+    activities.push({
+      label: `Earned "${b.badges.name}" badge`,
+      date: new Date(b.earned_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
+      timestamp: new Date(b.earned_at).getTime()
+    });
+  });
+
+  // Sort activities and take top 5
+  activities.sort((a, b) => b.timestamp - a.timestamp);
+
+  res.json({
+    ...user,
+    totalComplaints,
+    approvedComplaints,
+    badges: badges?.map(b => ({ ...b.badges, earned_at: b.earned_at })) || [],
+    rank,
+    levelProgress: Math.min(100, Math.max(0, progress)),
+    xpForNextLevel,
+    activities: activities.slice(0, 5)
+  });
 });
 
 module.exports = router;

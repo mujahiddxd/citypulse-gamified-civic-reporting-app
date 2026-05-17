@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import RotatingText from './RotatingText';
 
 const CardNav = ({
   logo,
@@ -12,7 +13,8 @@ const CardNav = ({
   theme = "light",
   user,
   onLogout,
-  onProfileMenuToggle
+  onProfileMenuToggle,
+  showProfileMenu
 }) => {
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -55,7 +57,20 @@ const CardNav = ({
                 fontSize: '1rem', fontWeight: '800', cursor: 'pointer',
                 padding: '0.5rem 1rem', textTransform: 'uppercase'
               }}>
-                {item.label}
+                <RotatingText 
+                  key={hoveredIndex === index ? 'hover' : 'idle'}
+                  texts={[item.label]} 
+                  mainClassName="overflow-hidden justify-center" 
+                  staggerFrom="last" 
+                  initial={{ y: hoveredIndex === index ? "100%" : 0 }} 
+                  animate={{ y: 0 }} 
+                  exit={{ y: "-120%" }} 
+                  staggerDuration={0.02} 
+                  splitLevelClassName="overflow-hidden" 
+                  transition={{ type: "spring", damping: 30, stiffness: 400 }} 
+                  auto={false} 
+                  loop={false} 
+                />
               </button>
 
               <AnimatePresence>
@@ -126,28 +141,87 @@ const CardNav = ({
         {/* Right Side - Auth / Profile */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {user ? (
-             <div
-               onClick={onProfileMenuToggle}
-               style={{
-                 display: 'flex', alignItems: 'center', gap: '0.75rem',
-                 cursor: 'pointer', padding: '0.3rem 0.6rem',
-                 borderRadius: '9999px', background: buttonBgColor,
-                 border: '2px solid #111111',
-                 position: 'relative',
-                 boxShadow: '2px 2px 0px #111111'
-               }}
-             >
-               <div style={{
-                 width: '32px', height: '32px', borderRadius: '50%',
-                 background: 'var(--accent)', display: 'flex', alignItems: 'center',
-                 justifyContent: 'center', fontWeight: '900', color: '#111',
-                 fontSize: '0.9rem', border: '2px solid #111'
-               }}>
-                 {user.username?.[0]?.toUpperCase() || 'U'}
+             <div style={{ position: 'relative' }}>
+               <div
+                 onClick={onProfileMenuToggle}
+                 style={{
+                   display: 'flex', alignItems: 'center', gap: '0.75rem',
+                   cursor: 'pointer', padding: '0.3rem 0.6rem',
+                   borderRadius: '9999px', background: buttonBgColor,
+                   border: '2px solid #111111',
+                   boxShadow: '2px 2px 0px #111111'
+                 }}
+               >
+                 <div style={{
+                   width: '32px', height: '32px', borderRadius: '50%',
+                   background: 'var(--accent)', display: 'flex', alignItems: 'center',
+                   justifyContent: 'center', fontWeight: '900', color: '#111',
+                   fontSize: '0.9rem', border: '2px solid #111'
+                 }}>
+                   {user.username?.[0]?.toUpperCase() || 'U'}
+                 </div>
+                 <span style={{ fontSize: '0.9rem', fontWeight: '800', color: buttonTextColor, paddingRight: '0.5rem' }}>
+                   {user.coins?.toLocaleString()} 🪙
+                 </span>
                </div>
-               <span style={{ fontSize: '0.9rem', fontWeight: '800', color: buttonTextColor, paddingRight: '0.5rem' }}>
-                 {user.coins?.toLocaleString()} 🪙
-               </span>
+
+               {/* Profile Menu Dropdown */}
+               <AnimatePresence>
+                 {showProfileMenu && (
+                   <motion.div
+                     initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                     animate={{ opacity: 1, y: 0, scale: 1 }}
+                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                     style={{
+                       position: 'absolute', top: '120%', right: '0',
+                       width: '220px', display: 'flex', flexDirection: 'column',
+                       background: 'var(--bg-elevated)',
+                       backdropFilter: 'var(--glass-blur)',
+                       border: '2px solid #111',
+                       borderRadius: '16px', padding: '0.5rem',
+                       boxShadow: '4px 4px 0px #111', zIndex: 1100
+                     }}
+                   >
+                     {/* Little arrow pointing up */}
+                     <div style={{
+                       position: 'absolute', top: '-6px', right: '30px',
+                       width: '12px', height: '12px',
+                       background: 'var(--bg-elevated)',
+                       borderLeft: '2px solid #111',
+                       borderTop: '2px solid #111',
+                       transform: 'rotate(45deg)',
+                       zIndex: -1
+                     }} />
+
+                     <Link to={user.username ? `/profile/${user.username}` : "/dashboard"} onClick={onProfileMenuToggle} className="btn-ghost" 
+                       style={{ textDecoration: 'none', color: 'var(--text-primary)', width: '100%', display: 'flex', alignItems: 'center', padding: '0.75rem', gap: '0.5rem', fontWeight: 'bold', borderRadius: '8px', transition: 'background 0.2s' }}
+                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(128, 128, 128, 0.15)'}
+                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                     >
+                       <span>👤</span> <span>View Profile</span>
+                     </Link>
+                     
+                     <Link to={(user.role === 'admin' || user.role === 'officer') ? "/admin" : "/dashboard"} onClick={onProfileMenuToggle} className="btn-ghost" 
+                       style={{ textDecoration: 'none', color: 'var(--text-primary)', width: '100%', display: 'flex', alignItems: 'center', padding: '0.75rem', gap: '0.5rem', fontWeight: 'bold', borderRadius: '8px', transition: 'background 0.2s' }}
+                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(128, 128, 128, 0.15)'}
+                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                     >
+                       <span>📊</span> <span>{(user.role === 'admin' || user.role === 'officer') ? "Admin Panel" : "Dashboard"}</span>
+                     </Link>
+                     
+                     <div style={{ height: '2px', background: '#111', margin: '0.5rem 0' }} />
+                     
+                     <button onClick={onLogout} className="btn-ghost" 
+                       style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', fontSize: '1rem', width: '100%', display: 'flex', alignItems: 'center', color: 'var(--danger)', padding: '0.75rem', gap: '0.5rem', fontWeight: 'bold', borderRadius: '8px', transition: 'background 0.2s' }}
+                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(220, 38, 38, 0.1)'}
+                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                     >
+                       <span>🚪</span> <span>Logout</span>
+                     </button>
+                   </motion.div>
+                 )}
+               </AnimatePresence>
              </div>
           ) : (
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>

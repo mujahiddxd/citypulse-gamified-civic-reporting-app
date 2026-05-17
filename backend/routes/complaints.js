@@ -130,7 +130,7 @@ router.get('/area-score', async (req, res) => {
 // Used on the /reports page for community visibility.
 // NOTE: This route MUST be declared before /:id to avoid being swallowed by it.
 router.get('/public', async (req, res) => {
-  const { status, type, limit = 60 } = req.query;
+  const { status, type, search, limit = 60 } = req.query;
 
   let query = supabase
     .from('complaints')
@@ -145,6 +145,25 @@ router.get('/public', async (req, res) => {
     query = query.in('status', ['resolved', 'in_progress', 'Approved']);
   }
   if (type) query = query.eq('type', type);
+  
+  if (search) {
+    const term = search.trim();
+    
+    // First, find users matching the search term to get their IDs
+    const { data: matchedUsers } = await supabase
+      .from('users')
+      .select('id')
+      .ilike('username', `%${term}%`);
+    
+    const userIds = matchedUsers?.map(u => u.id) || [];
+    
+    let orFilter = `area_name.ilike.%${term}%,description.ilike.%${term}%`;
+    if (userIds.length > 0) {
+      orFilter += `,user_id.in.(${userIds.join(',')})`;
+    }
+    
+    query = query.or(orFilter);
+  }
 
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
@@ -191,7 +210,7 @@ router.post('/', authenticate, [
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { type, description, latitude, longitude, severity, area_name, municipality, additional_info, is_anonymous, image_url,
+  const { type, description, latitude, longitude, severity, area_name, municipality, additional_info, is_anonymous, image_url, images,
     ai_verified, ai_confidence, ai_severity, ai_user_override, ai_mode } = req.body;
 
   // Insert the complaint — status starts as 'Pending' (awaiting admin review)
@@ -208,7 +227,8 @@ router.post('/', authenticate, [
       municipality,
       additional_info,
       is_anonymous: is_anonymous || false,
-      image_url,
+      image_url, // for backward compatibility
+      images: Array.isArray(images) ? images : (image_url ? [image_url] : []),
       status: 'Pending',
       // AI verification metadata (nullable — only present when user ran AI check)
       ai_verified: ai_verified ?? null,

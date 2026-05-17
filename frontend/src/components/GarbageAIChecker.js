@@ -225,11 +225,10 @@ const GarbageAIChecker = ({ imageFile, imagePreview, onResult }) => {
           )}
 
           {/* AI Statement */}
-          <div className={`ai-statement ${
-            isVerified ? 'ai-statement-verified' :
-            isNotVerified ? 'ai-statement-warning' :
-            'ai-statement-neutral'
-          }`}>
+          <div className={`ai-statement ${isVerified ? 'ai-statement-verified' :
+              isNotVerified ? 'ai-statement-warning' :
+                'ai-statement-neutral'
+            }`}>
             {result.statement}
           </div>
 
@@ -239,9 +238,8 @@ const GarbageAIChecker = ({ imageFile, imagePreview, onResult }) => {
               {result.labels.map((l, i) => (
                 <span
                   key={i}
-                  className={`ai-label-chip ${
-                    result.matched_labels?.includes(l.label) ? 'matched' : ''
-                  }`}
+                  className={`ai-label-chip ${result.matched_labels?.includes(l.label) ? 'matched' : ''
+                    }`}
                 >
                   {l.label} ({l.score}%)
                 </span>

@@ -7,10 +7,21 @@ import RotatingText from './RotatingText';
 import CardNav from './CardNav';
 
 const Navbar = () => {
-  const { user, logout } = useAuth();
+  const { user: authUser, logout } = useAuth();
   const { equippedBorder } = useTheme();
   const navigate = useNavigate();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  // Check if logged in via standalone admin portal
+  const adminToken = localStorage.getItem('citypulse_admin_token');
+  
+  // Synthetic user for master admin if no regular user is logged in
+  const user = authUser || (adminToken ? { 
+    username: 'SystemAdmin', 
+    role: 'admin', 
+    coins: 999999, 
+    isMaster: true 
+  } : null);
 
   const handleLogout = async () => {
     await logout();
@@ -25,6 +36,7 @@ const Navbar = () => {
       textColor: "#ffffff",
       links: [
         { label: "📍 Heatmap", path: "/heatmap" },
+        { label: "🏢 Wards", path: "/wards" },
         { label: "🏆 Leaderboard", path: "/leaderboard" },
         { label: "📰 Public Feed", path: "/reports" }
       ]
@@ -50,6 +62,34 @@ const Navbar = () => {
     }
   ];
 
+  // Add Admin/Officer menu if authorized (either via Supabase role or standalone admin token)
+  const isMasterAdmin = localStorage.getItem('citypulse_admin_token');
+  const isAuthorized = isMasterAdmin || (user && (user.role === 'admin' || user.role === 'officer'));
+
+  if (isAuthorized) {
+    const managementLinks = [];
+    const role = user?.role?.toLowerCase();
+    
+    if (role === 'officer') {
+      managementLinks.push({ label: "📋 Complaints", path: "/admin/complaints" });
+      managementLinks.push({ label: "🏢 Wards", path: "/wards" });
+    } else {
+      managementLinks.push({ label: "⚙️ Admin Panel", path: "/admin" });
+      managementLinks.push({ label: "📋 Complaints", path: "/admin/complaints" });
+      managementLinks.push({ label: "🏢 Wards", path: "/wards" });
+      managementLinks.push({ label: "📈 Analytics", path: "/admin/analytics" });
+    }
+
+    managementLinks.push({ label: "👤 My Profile", path: user?.username ? `/profile/${user.username}` : "/dashboard" });
+
+    navItems.push({
+      label: "Management",
+      bgColor: "#C62828", // Red theme for admin
+      textColor: "#ffffff",
+      links: managementLinks
+    });
+  }
+
   const logo = (
     <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', textDecoration: 'none' }}>
       <span style={{
@@ -71,52 +111,20 @@ const Navbar = () => {
   );
 
   return (
-    <div style={{ position: 'relative' }}>
       <CardNav
         logo={logo}
         items={navItems}
         user={user}
         onLogout={handleLogout}
         onProfileMenuToggle={() => setShowProfileMenu(!showProfileMenu)}
+        showProfileMenu={showProfileMenu}
+        setShowProfileMenu={setShowProfileMenu}
         baseColor="#ffffff"
         menuColor="#111111"
         buttonBgColor="#ffffff"
         buttonTextColor="#111111"
         theme="light"
       />
-
-      {/* Profile Menu Dropdown Overlay */}
-      <AnimatePresence>
-        {user && showProfileMenu && (
-          <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            style={{
-              position: 'fixed', top: '80px', right: '5%',
-              width: '220px', display: 'flex', flexDirection: 'column',
-              background: 'var(--bg-elevated)',
-              backdropFilter: 'var(--glass-blur)',
-              border: '2px solid #111',
-              borderRadius: '16px', padding: '0.5rem',
-              boxShadow: '4px 4px 0px #111', zIndex: 1100
-            }}
-          >
-            <Link to={`/profile/${user.username}`} onClick={() => setShowProfileMenu(false)} className="btn-ghost" style={{ textDecoration: 'none', color: 'var(--text-primary)', width: '100%', display: 'flex', alignItems: 'center', padding: '0.75rem', gap: '0.5rem', fontWeight: 'bold' }}>
-              <span>👤</span> <span>View Profile</span>
-            </Link>
-            <Link to="/dashboard" onClick={() => setShowProfileMenu(false)} className="btn-ghost" style={{ textDecoration: 'none', color: 'var(--text-primary)', width: '100%', display: 'flex', alignItems: 'center', padding: '0.75rem', gap: '0.5rem', fontWeight: 'bold' }}>
-              <span>📊</span> <span>Dashboard</span>
-            </Link>
-            <div style={{ height: '2px', background: '#111', margin: '0.5rem 0' }} />
-            <button onClick={handleLogout} className="btn-ghost" style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', fontSize: '1rem', width: '100%', display: 'flex', alignItems: 'center', color: 'var(--danger)', padding: '0.75rem', gap: '0.5rem', fontWeight: 'bold' }}>
-              <span>🚪</span> <span>Logout</span>
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
   );
 };
 

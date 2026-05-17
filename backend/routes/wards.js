@@ -1,0 +1,272 @@
+/**
+ * routes/wards.js — Ward Map & Report Generation APIs
+ * -----------------------------------------------------
+ * Provides endpoints for the Ward Map Visualization module:
+ *   GET  /api/wards/map          → All wards with GeoJSON boundaries + complaint stats
+ *   GET  /api/wards/:id/stats    → Detailed statistics for a single ward
+ *   GET  /api/wards/:id/report   → Full ward report data for offline PDF/CSV/Excel
+ *
+ * Ward data is defined statically (Mumbra & Kurla boundaries) and enriched
+ * with real-time complaint statistics from the Supabase database.
+ */
+const express = require('express');
+const supabase = require('../utils/supabase');
+const { authenticate, requireOfficerOrAdmin } = require('../middleware/auth');
+const crypto = require('crypto');
+const router = express.Router();
+
+// ── Ward Boundary Definitions ────────────────────────────────────────────────
+// Real geographic boundaries for Mumbra & Kurla wards.
+// In production, these would come from a GeoJSON file or database table.
+const WARD_DEFINITIONS = [
+  {
+    id: 'ward-mumbra',
+    name: 'Thane Mumbra Ward',
+    officer: 'Officer Rajesh Kumar',
+    contact: '+91 98765 43210',
+    center: [19.1885, 73.0215],
+    description: 'Mumbra is a densely populated township in Thane district (~20 km²), bounded by Parsik Hills to the west and Thane Creek to the east. A major suburb on the Central Railway line.',
+    coordinates: [
+      [19.163, 73.012], [19.165, 73.005], [19.170, 72.998], [19.176, 72.994],
+      [19.183, 72.992], [19.190, 72.993], [19.196, 72.996], [19.203, 73.000],
+      [19.208, 73.006], [19.212, 73.013], [19.214, 73.020], [19.213, 73.028],
+      [19.210, 73.035], [19.205, 73.040], [19.198, 73.044], [19.190, 73.046],
+      [19.183, 73.045], [19.176, 73.042], [19.170, 73.038], [19.166, 73.032],
+      [19.163, 73.024], [19.162, 73.018],
+    ]
+  },
+  {
+    id: 'ward-kurla',
+    name: 'Mumbai Kurla Ward (L Ward)',
+    officer: 'Officer Sneha Patil',
+    contact: '+91 91234 56789',
+    center: [19.072, 72.884],
+    description: 'Kurla (L Ward) is a major hub in Mumbai\'s eastern suburbs (~16 km²), bounded by the Mithi River to the west and extending to Ghatkopar in the east. A critical railway junction and commercial center.',
+    coordinates: [
+      [19.055, 72.860], [19.058, 72.855], [19.063, 72.853], [19.070, 72.852],
+      [19.078, 72.854], [19.085, 72.856], [19.092, 72.860], [19.098, 72.866],
+      [19.102, 72.874], [19.104, 72.882], [19.103, 72.890], [19.100, 72.898],
+      [19.096, 72.904], [19.090, 72.908], [19.083, 72.910], [19.076, 72.910],
+      [19.070, 72.908], [19.064, 72.904], [19.058, 72.898], [19.054, 72.890],
+      [19.052, 72.880], [19.053, 72.870],
+    ]
+  }
+];
+
+/**
+ * isPointInPolygon(lat, lng, polygon)
+ * Ray-casting algorithm to check if a point is inside a polygon.
+ * Used to determine which ward a complaint belongs to.
+ */
+function isPointInPolygon(lat, lng, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i][0], yi = polygon[i][1];
+    const xj = polygon[j][0], yj = polygon[j][1];
+
+    const intersect = ((yi > lng) !== (yj > lng)) &&
+      (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * getWardStats(wardDef, allComplaints)
+ * Calculates complaint statistics for a ward based on geo-fencing.
+ */
+function getWardStats(wardDef, allComplaints) {
+  const wardComplaints = allComplaints.filter(c =>
+    c.latitude && c.longitude &&
+    isPointInPolygon(parseFloat(c.latitude), parseFloat(c.longitude), wardDef.coordinates)
+  );
+
+  const total = wardComplaints.length;
+  const pending = wardComplaints.filter(c => c.status === 'Pending').length;
+  const approved = wardComplaints.filter(c => c.status === 'Approved').length;
+  const resolved = wardComplaints.filter(c => c.status === 'resolved').length;
+  const inProgress = wardComplaints.filter(c => c.status === 'in_progress').length;
+  const rejected = wardComplaints.filter(c => c.status === 'Rejected').length;
+
+  // Category breakdown
+  const categories = {};
+  wardComplaints.forEach(c => {
+    const cat = c.type || 'Unknown';
+    categories[cat] = (categories[cat] || 0) + 1;
+  });
+
+  // Severity breakdown
+  const severities = { High: 0, Medium: 0, Low: 0 };
+  wardComplaints.forEach(c => {
+    if (c.severity && severities.hasOwnProperty(c.severity)) {
+      severities[c.severity]++;
+    }
+  });
+
+  // Monthly trend (last 6 months)
+  const monthlyTrend = {};
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    monthlyTrend[key] = { total: 0, resolved: 0 };
+  }
+  wardComplaints.forEach(c => {
+    const d = new Date(c.created_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    if (monthlyTrend[key]) {
+      monthlyTrend[key].total++;
+      if (c.status === 'resolved') monthlyTrend[key].resolved++;
+    }
+  });
+
+  // Determine load level for color coding
+  let loadLevel = 'low';
+  if (total > 20) loadLevel = 'high';
+  else if (total > 8) loadLevel = 'medium';
+
+  return {
+    total,
+    pending,
+    approved,
+    resolved,
+    inProgress,
+    rejected,
+    categories,
+    severities,
+    monthlyTrend,
+    loadLevel,
+    complaints: wardComplaints.map(c => ({
+      id: c.id,
+      type: c.type,
+      severity: c.severity,
+      status: c.status,
+      area_name: c.area_name,
+      description: c.description,
+      created_at: c.created_at,
+      latitude: c.latitude,
+      longitude: c.longitude,
+    }))
+  };
+}
+
+// ── GET /api/wards/map ───────────────────────────────────────────────────────
+// Returns all ward data with GeoJSON boundaries and complaint statistics.
+// Used by the Ward Map page to render colored polygons.
+router.get('/map', async (req, res) => {
+  try {
+    // Fetch ALL complaints (no status filter) to compute stats
+    const { data: complaints, error } = await supabase
+      .from('complaints')
+      .select('id, type, severity, status, area_name, description, latitude, longitude, created_at')
+      .order('created_at', { ascending: false })
+      .limit(1000);
+
+    if (error) throw error;
+
+    const wards = WARD_DEFINITIONS.map(wardDef => {
+      const stats = getWardStats(wardDef, complaints || []);
+      return {
+        id: wardDef.id,
+        name: wardDef.name,
+        officer: wardDef.officer,
+        contact: wardDef.contact,
+        center: wardDef.center,
+        description: wardDef.description,
+        coordinates: wardDef.coordinates,
+        loadLevel: stats.loadLevel,
+        stats: {
+          total: stats.total,
+          pending: stats.pending,
+          resolved: stats.resolved,
+          inProgress: stats.inProgress,
+          approved: stats.approved,
+          severities: stats.severities,
+          categories: stats.categories,
+        }
+      };
+    });
+
+    res.json({ wards, totalComplaints: (complaints || []).length });
+  } catch (err) {
+    console.error('[Wards] Map fetch error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/wards/:id/stats ─────────────────────────────────────────────────
+// Returns detailed statistics for a specific ward, including monthly trends.
+router.get('/:id/stats', async (req, res) => {
+  try {
+    const wardDef = WARD_DEFINITIONS.find(w => w.id === req.params.id);
+    if (!wardDef) return res.status(404).json({ error: 'Ward not found' });
+
+    const { data: complaints, error } = await supabase
+      .from('complaints')
+      .select('id, type, severity, status, area_name, description, latitude, longitude, created_at')
+      .order('created_at', { ascending: false })
+      .limit(1000);
+
+    if (error) throw error;
+
+    const stats = getWardStats(wardDef, complaints || []);
+
+    res.json({
+      ward: {
+        id: wardDef.id,
+        name: wardDef.name,
+        officer: wardDef.officer,
+        contact: wardDef.contact,
+        center: wardDef.center,
+        description: wardDef.description,
+      },
+      stats
+    });
+  } catch (err) {
+    console.error('[Wards] Stats fetch error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/wards/:id/report ────────────────────────────────────────────────
+// Returns full report data for a ward, intended for PDF/offline generation.
+// Includes a unique report ID and timestamp.
+router.get('/:id/report', async (req, res) => {
+  try {
+    const wardDef = WARD_DEFINITIONS.find(w => w.id === req.params.id);
+    if (!wardDef) return res.status(404).json({ error: 'Ward not found' });
+
+    const { data: complaints, error } = await supabase
+      .from('complaints')
+      .select('id, type, severity, status, area_name, description, latitude, longitude, created_at')
+      .order('created_at', { ascending: false })
+      .limit(1000);
+
+    if (error) throw error;
+
+    const stats = getWardStats(wardDef, complaints || []);
+    const reportId = `RPT-${wardDef.id.toUpperCase()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+    const generatedAt = new Date().toISOString();
+
+    res.json({
+      reportId,
+      generatedAt,
+      ward: {
+        id: wardDef.id,
+        name: wardDef.name,
+        officer: wardDef.officer,
+        contact: wardDef.contact,
+        center: wardDef.center,
+        description: wardDef.description,
+        coordinates: wardDef.coordinates,
+      },
+      stats,
+      remarks: req.query.remarks || 'No additional remarks provided.',
+    });
+  } catch (err) {
+    console.error('[Wards] Report fetch error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;

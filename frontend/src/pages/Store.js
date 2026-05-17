@@ -49,21 +49,21 @@ const TYPE_LABELS = {
 };
 
 const STORE_ITEMS = [
-    { id: 'theme-cyberpunk', name: 'Cyberpunk', type: 'theme', value: 'cyberpunk', price: 800, icon: '🌃', description: 'High-contrast neon cyan and magenta with grid aesthetics.', rarity: 'Legendary' },
-    { id: 'theme-ocean', name: 'Deep Sea Ocean', type: 'theme', value: 'ocean', price: 350, icon: '🌊', description: 'Calming nautical blues and soft white accents.', rarity: 'Rare' },
-    { id: 'theme-emerald', name: 'Emerald Forest', type: 'theme', value: 'emerald', price: 350, icon: '🌲', description: 'Earthy greens and natural textures for the eco-conscious.', rarity: 'Rare' },
-    { id: 'theme-sunset', name: 'Sunset Smog', type: 'theme', value: 'sunset', price: 500, icon: '🌅', description: 'Warm amber and smoky purple gradients inspired by urban dusk.', rarity: 'Epic' },
-    { id: 'theme-midnight', name: 'Midnight Patrol', type: 'theme', value: 'midnight', price: 600, icon: '🌙', description: 'Deep indigo and silver tones for late-night city cleanup crews.', rarity: 'Epic' },
-    { id: 'border-neon', name: 'Neon Red Aura', type: 'border', value: 'neon-aura', price: 150, icon: '🔥', description: 'A legendary glowing fire aura that surrounds your profile.', rarity: 'Epic' },
-    { id: 'border-eco-shield', name: 'Eco Shield', type: 'border', value: 'eco-shield', price: 250, icon: '🛡️', description: 'A glowing green protective ring — badge of a true environmentalist.', rarity: 'Rare' },
-    { id: 'border-recycler', name: 'Recycler Ring', type: 'border', value: 'recycler-ring', price: 200, icon: '♻️', description: 'An animated recycling symbol border for dedicated waste reporters.', rarity: 'Uncommon' },
-    { id: 'title-legend', name: 'Eco Legend', type: 'title', value: 'eco-legend', price: 1000, icon: '👑', description: 'The ultimate title for the saviors of the city.', rarity: 'Legendary' },
-    { id: 'title-champion', name: 'City Champion', type: 'title', value: 'champion-title', price: 500, icon: '👑', description: 'An exclusive shimmering title for the top contributors.', rarity: 'Legendary' },
-    { id: 'title-waste-warrior', name: 'Waste Warrior', type: 'title', value: 'waste-warrior', price: 300, icon: '⚔️', description: 'For those who fight the war on waste, one report at a time.', rarity: 'Rare' },
-    { id: 'title-green-guardian', name: 'Green Guardian', type: 'title', value: 'green-guardian', price: 400, icon: '🌿', description: 'Protector of public spaces — awarded to consistent reporters.', rarity: 'Epic' },
-    { id: 'badge-gold', name: 'Golden Shimmer', type: 'badge', value: 'golden-checkmark', price: 100, icon: '🌟', description: 'A shimmering gold badge that stands out everywhere.', rarity: 'Uncommon' },
-    { id: 'badge-cleanup-crew', name: 'Cleanup Crew', type: 'badge', value: 'cleanup-crew', price: 75, icon: '🧹', description: 'Show everyone you are part of the active cleanup movement.', rarity: 'Common' },
-    { id: 'badge-eco-star', name: 'Eco Star', type: 'badge', value: 'eco-star', price: 200, icon: '⭐', description: 'A verified eco-warrior star for 10+ approved garbage reports.', rarity: 'Rare' },
+    { id: 'theme-cyberpunk', name: 'Cyberpunk', type: 'theme', value: 'cyberpunk', price: 400, icon: '🌃', description: 'High-contrast neon cyan and magenta with grid aesthetics.', rarity: 'Legendary' },
+    { id: 'theme-ocean', name: 'Deep Sea Ocean', type: 'theme', value: 'ocean', price: 175, icon: '🌊', description: 'Calming nautical blues and soft white accents.', rarity: 'Rare' },
+    { id: 'theme-emerald', name: 'Emerald Forest', type: 'theme', value: 'emerald', price: 175, icon: '🌲', description: 'Earthy greens and natural textures for the eco-conscious.', rarity: 'Rare' },
+    { id: 'theme-sunset', name: 'Sunset Smog', type: 'theme', value: 'sunset', price: 250, icon: '🌅', description: 'Warm amber and smoky purple gradients inspired by urban dusk.', rarity: 'Epic' },
+    { id: 'theme-midnight', name: 'Midnight Patrol', type: 'theme', value: 'midnight', price: 300, icon: '🌙', description: 'Deep indigo and silver tones for late-night city cleanup crews.', rarity: 'Epic' },
+    { id: 'border-neon', name: 'Neon Red Aura', type: 'border', value: 'neon-aura', price: 75, icon: '🔥', description: 'A legendary glowing fire aura that surrounds your profile.', rarity: 'Epic' },
+    { id: 'border-eco-shield', name: 'Eco Shield', type: 'border', value: 'eco-shield', price: 125, icon: '🛡️', description: 'A glowing green protective ring — badge of a true environmentalist.', rarity: 'Rare' },
+    { id: 'border-recycler', name: 'Recycler Ring', type: 'border', value: 'recycler-ring', price: 100, icon: '♻️', description: 'An animated recycling symbol border for dedicated waste reporters.', rarity: 'Uncommon' },
+    { id: 'title-legend', name: 'Eco Legend', type: 'title', value: 'eco-legend', price: 500, icon: '👑', description: 'The ultimate title for the saviors of the city.', rarity: 'Legendary' },
+    { id: 'title-champion', name: 'City Champion', type: 'title', value: 'champion-title', price: 250, icon: '👑', description: 'An exclusive shimmering title for the top contributors.', rarity: 'Legendary' },
+    { id: 'title-waste-warrior', name: 'Waste Warrior', type: 'title', value: 'waste-warrior', price: 150, icon: '⚔️', description: 'For those who fight the war on waste, one report at a time.', rarity: 'Rare' },
+    { id: 'title-green-guardian', name: 'Green Guardian', type: 'title', value: 'green-guardian', price: 200, icon: '🌿', description: 'Protector of public spaces — awarded to consistent reporters.', rarity: 'Epic' },
+    { id: 'badge-gold', name: 'Golden Shimmer', type: 'badge', value: 'golden-checkmark', price: 50, icon: '🌟', description: 'A shimmering gold badge that stands out everywhere.', rarity: 'Uncommon' },
+    { id: 'badge-cleanup-crew', name: 'Cleanup Crew', type: 'badge', value: 'cleanup-crew', price: 35, icon: '🧹', description: 'Show everyone you are part of the active cleanup movement.', rarity: 'Common' },
+    { id: 'badge-eco-star', name: 'Eco Star', type: 'badge', value: 'eco-star', price: 100, icon: '⭐', description: 'A verified eco-warrior star for 10+ approved garbage reports.', rarity: 'Rare' },
 ];
 
 const Store = () => {

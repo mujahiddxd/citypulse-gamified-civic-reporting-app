@@ -230,6 +230,32 @@ const Home = () => {
         </div>
       </section>
 
+      {/* Bug Report Section */}
+      <section style={{ padding: '4rem 2rem', background: '#FEF2F2', borderTop: '1px solid #FECACA', borderBottom: '1px solid #FECACA' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: '900', textTransform: 'uppercase', color: '#991B1B', marginBottom: '1rem' }}>
+            🐛 Found a Bug?
+          </h2>
+          <p style={{ color: '#7F1D1D', fontSize: '1.1rem', marginBottom: '2rem', lineHeight: '1.6' }}>
+            CityPulse is in active development. If you encounter any technical issues, glitches, or have suggestions for new features, let our developers know! Your feedback helps us improve the platform for everyone.
+          </p>
+          <Link to="/feedback"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+              padding: '1rem 2.5rem', background: '#991B1B', color: 'white',
+              borderRadius: '10px', fontFamily: 'var(--font-display)', fontSize: '1.1rem',
+              fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em',
+              boxShadow: '0 4px 15px rgba(153, 27, 27, 0.3)', textDecoration: 'none',
+              transition: 'transform 0.2s', cursor: 'pointer',
+            }}
+            onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+          >
+            <span>🚨</span> Report App Bug
+          </Link>
+        </div>
+      </section>
+
       {/* CTA */}
       {!user && (
         <section style={{

@@ -23,6 +23,7 @@ const redIcon = new L.Icon({
 });
 
 const AdminComplaints = () => {
+  const { user } = useAuth();
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('Pending');
@@ -31,6 +32,7 @@ const AdminComplaints = () => {
   const [actionLoading, setActionLoading] = useState({});
   const [selectedMapComplaint, setSelectedMapComplaint] = useState(null);
   const [selectedDetail, setSelectedDetail] = useState(null);
+  const [activeImgIdx, setActiveImgIdx] = useState(0);
   const { session } = useAuth();
 
   useEffect(() => {
@@ -248,23 +250,25 @@ const AdminComplaints = () => {
                             <button
                               className="btn btn-sm"
                               disabled={!!actionLoading[c.id]}
-                              onClick={() => handleAction(c.id, 'approve')}
+                              onClick={(e) => { e.stopPropagation(); handleAction(c.id, 'approve'); }}
                               style={{ flex: 1, justifyContent: 'center', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem' }}
                             >{actionLoading[c.id] === 'approve' ? '...' : '✅ Approve'}</button>
                             <button
                               className="btn btn-sm"
                               disabled={!!actionLoading[c.id]}
-                              onClick={() => handleAction(c.id, 'reject')}
+                              onClick={(e) => { e.stopPropagation(); handleAction(c.id, 'reject'); }}
                               style={{ flex: 1, justifyContent: 'center', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem' }}
                             >{actionLoading[c.id] === 'reject' ? '...' : '❌ Reject'}</button>
                           </>
                         )}
-                        <button
-                          className="btn btn-sm"
-                          disabled={!!actionLoading[c.id]}
-                          onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }}
-                          style={{ flex: 0.4, justifyContent: 'center', background: '#fff', color: '#ef4444', border: '1px solid #fee2e2', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem' }}
-                        >{actionLoading[c.id] === 'delete' ? '...' : '🗑️'}</button>
+                        {user?.role === 'admin' && (
+                          <button
+                            className="btn btn-sm"
+                            disabled={!!actionLoading[c.id]}
+                            onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }}
+                            style={{ flex: 0.4, justifyContent: 'center', background: '#fff', color: '#ef4444', border: '1px solid #fee2e2', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem' }}
+                          >{actionLoading[c.id] === 'delete' ? '...' : '🗑️'}</button>
+                        )}
                       </div>
                     </motion.div>
                   );
@@ -296,7 +300,7 @@ const AdminComplaints = () => {
           return (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
-              onClick={() => { setSelectedDetail(null); setSelectedMapComplaint(null); }}>
+              onClick={() => { setSelectedDetail(null); setSelectedMapComplaint(null); setActiveImgIdx(0); }}>
               <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 30 }}
                 style={{ background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '720px', maxHeight: '90vh', overflow: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.3)' }}
                 onClick={e => e.stopPropagation()}>
@@ -306,19 +310,49 @@ const AdminComplaints = () => {
                   <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', textTransform: 'uppercase', color: '#111', fontWeight: 900, margin: 0 }}>
                     📋 Report Details
                   </h3>
-                  <button onClick={() => { setSelectedDetail(null); setSelectedMapComplaint(null); }}
+                  <button onClick={() => { setSelectedDetail(null); setSelectedMapComplaint(null); setActiveImgIdx(0); }}
                     style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >✕</button>
                 </div>
 
-                {/* Image */}
-                {c.image_url ? (
-                  <div style={{ width: '100%', maxHeight: '360px', overflow: 'hidden', background: '#f1f5f9' }}>
-                    <img src={c.image_url} alt="Report" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  </div>
-                ) : (
-                  <div style={{ width: '100%', height: '180px', background: 'linear-gradient(135deg,#f1f5f9,#e2e8f0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4rem', color: '#cbd5e1' }}>🗑️</div>
-                )}
+                {/* Multi-Image Display */}
+                <div style={{ position: 'relative', width: '100%', maxHeight: '420px', overflow: 'hidden', background: '#000' }}>
+                  {(() => {
+                    const imgList = (c.images && c.images.length > 0) ? c.images : (c.image_url ? [c.image_url] : []);
+                    if (imgList.length === 0) return (
+                      <div style={{ width: '100%', height: '240px', background: 'linear-gradient(135deg,#f1f5f9,#e2e8f0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4rem', color: '#cbd5e1' }}>🗑️</div>
+                    );
+
+                    const activeUrl = imgList[activeImgIdx] || imgList[0];
+
+                    return (
+                      <>
+                        <img src={activeUrl} alt="Report" style={{ width: '100%', height: '420px', objectFit: 'contain', display: 'block' }} />
+                        
+                        {imgList.length > 1 && (
+                          <>
+                            {/* Navigation Arrows */}
+                            <button onClick={() => setActiveImgIdx(p => (p - 1 + imgList.length) % imgList.length)}
+                              style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', fontSize: '1.2rem' }}>
+                              ←
+                            </button>
+                            <button onClick={() => setActiveImgIdx(p => (p + 1) % imgList.length)}
+                              style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', fontSize: '1.2rem' }}>
+                              →
+                            </button>
+
+                            {/* Indicator */}
+                            <div style={{ position: 'absolute', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '0.4rem', padding: '0.4rem 0.8rem', background: 'rgba(0,0,0,0.5)', borderRadius: '20px' }}>
+                              {imgList.map((_, i) => (
+                                <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: i === activeImgIdx ? '#fff' : 'rgba(255,255,255,0.3)', transition: 'all 0.2s' }} />
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
 
                 {/* Body */}
                 <div style={{ padding: '1.5rem' }}>
@@ -453,16 +487,18 @@ const AdminComplaints = () => {
                   )}
 
                   {/* Permanent Delete for Admin */}
-                  <div style={{ marginTop: '1.5rem', borderTop: '1px dashed #e2e8f0', paddingTop: '1.25rem' }}>
-                    <button
-                      disabled={!!actionLoading[c.id]}
-                      onClick={() => handleDelete(c.id)}
-                      style={{ width: '100%', padding: '0.75rem', background: '#fff', color: '#ef4444', border: '1px solid #fee2e2', borderRadius: '10px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                    >
-                      {actionLoading[c.id] === 'delete' ? 'Deleting...' : '🗑️ Permanently Delete Report'}
-                    </button>
-                    <p style={{ textAlign: 'center', fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.5rem' }}>Only administrators can permanently remove records.</p>
-                  </div>
+                  {user?.role === 'admin' && (
+                    <div style={{ marginTop: '1.5rem', borderTop: '1px dashed #e2e8f0', paddingTop: '1.25rem' }}>
+                      <button
+                        disabled={!!actionLoading[c.id]}
+                        onClick={() => handleDelete(c.id)}
+                        style={{ width: '100%', padding: '0.75rem', background: '#fff', color: '#ef4444', border: '1px solid #fee2e2', borderRadius: '10px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                      >
+                        {actionLoading[c.id] === 'delete' ? 'Deleting...' : '🗑️ Permanently Delete Report'}
+                      </button>
+                      <p style={{ textAlign: 'center', fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.5rem' }}>Only administrators can permanently remove records.</p>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </motion.div>

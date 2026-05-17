@@ -173,36 +173,36 @@ router.post('/unequip', authenticate, async (req, res) => {
 //   - Day 30: Grand Jackpot (500 coins + 'Eco Legend' Title)
 
 const MONTHLY_REWARDS = [
-    { coins: 25,  xp: 15  }, // Day 1
-    { coins: 35,  xp: 20  }, // Day 2
-    { coins: 50,  xp: 25  }, // Day 3
-    { coins: 40,  xp: 20  }, // Day 4
-    { coins: 60,  xp: 30  }, // Day 5
-    { coins: 75,  xp: 35  }, // Day 6
-    { coins: 150, xp: 100, bonus: 'Midnight Patrol' }, // Day 7
-    { coins: 40,  xp: 25  }, // Day 8
-    { coins: 55,  xp: 30  }, // Day 9
-    { coins: 70,  xp: 40  }, // Day 10
-    { coins: 65,  xp: 35  }, // Day 11
-    { coins: 80,  xp: 45  }, // Day 12
-    { coins: 95,  xp: 50  }, // Day 13
-    { coins: 200, xp: 150, bonus: 'Cyberpunk' }, // Day 14
-    { coins: 60,  xp: 40  }, // Day 15
-    { coins: 75,  xp: 50  }, // Day 16
-    { coins: 90,  xp: 60  }, // Day 17
-    { coins: 85,  xp: 55  }, // Day 18
-    { coins: 110, xp: 70  }, // Day 19
-    { coins: 130, xp: 80  }, // Day 20
-    { coins: 300, xp: 200, bonus: 'Golden Shimmer' }, // Day 21
-    { coins: 80,  xp: 60  }, // Day 22
-    { coins: 100, xp: 75  }, // Day 23
-    { coins: 120, xp: 90  }, // Day 24
-    { coins: 140, xp: 105 }, // Day 25
-    { coins: 160, xp: 120 }, // Day 26
-    { coins: 180, xp: 135 }, // Day 27
-    { coins: 150, xp: 110 }, // Day 28
-    { coins: 200, xp: 150 }, // Day 29
-    { coins: 500, xp: 300, bonus: 'Eco Legend' }, // Day 30
+    { coins: 75,   xp: 45   }, // Day 1
+    { coins: 105,  xp: 60   }, // Day 2
+    { coins: 150,  xp: 75   }, // Day 3
+    { coins: 120,  xp: 60   }, // Day 4
+    { coins: 180,  xp: 90   }, // Day 5
+    { coins: 225,  xp: 105  }, // Day 6
+    { coins: 450,  xp: 300,  bonus: 'Midnight Patrol' }, // Day 7
+    { coins: 120,  xp: 75   }, // Day 8
+    { coins: 165,  xp: 90   }, // Day 9
+    { coins: 210,  xp: 120  }, // Day 10
+    { coins: 195,  xp: 105  }, // Day 11
+    { coins: 240,  xp: 135  }, // Day 12
+    { coins: 285,  xp: 150  }, // Day 13
+    { coins: 600,  xp: 450,  bonus: 'Cyberpunk' }, // Day 14
+    { coins: 180,  xp: 120  }, // Day 15
+    { coins: 225,  xp: 150  }, // Day 16
+    { coins: 270,  xp: 180  }, // Day 17
+    { coins: 255,  xp: 165  }, // Day 18
+    { coins: 330,  xp: 210  }, // Day 19
+    { coins: 390,  xp: 240  }, // Day 20
+    { coins: 900,  xp: 600,  bonus: 'Golden Shimmer' }, // Day 21
+    { coins: 240,  xp: 180  }, // Day 22
+    { coins: 300,  xp: 225  }, // Day 23
+    { coins: 360,  xp: 270  }, // Day 24
+    { coins: 420,  xp: 315  }, // Day 25
+    { coins: 480,  xp: 360  }, // Day 26
+    { coins: 540,  xp: 405  }, // Day 27
+    { coins: 450,  xp: 330  }, // Day 28
+    { coins: 600,  xp: 450  }, // Day 29
+    { coins: 1500, xp: 900,  bonus: 'Eco Legend' }, // Day 30
 ];
 
 router.post('/daily-reward', authenticate, async (req, res) => {

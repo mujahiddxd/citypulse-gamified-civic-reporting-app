@@ -44,6 +44,7 @@ const statisticsRoutes = require('./routes/statistics'); // Public platform stat
 const commentsRoutes = require('./routes/comments');   // Comments on public reports
 const adminAuthRoutes = require('./routes/admin-auth'); // Standalone admin JWT login
 const aiRoutes = require('./routes/ai');               // AI garbage photo analysis
+const wardsRoutes = require('./routes/wards');         // Ward map & report generation
 
 const app = express();
 
@@ -106,6 +107,7 @@ app.use('/api/statistics', statisticsRoutes);
 app.use('/api/comments', commentsRoutes);
 app.use('/api/admin-auth', adminAuthRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/wards', wardsRoutes);
 app.use('/api/rewards', require('./routes/rewards'));
 
 // ── Health Check ───────────────────────────────────────────────────────────────

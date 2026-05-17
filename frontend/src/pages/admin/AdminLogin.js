@@ -68,7 +68,17 @@ const AdminLogin = () => {
                 return;
             }
 
+            // Clear any regular user session to prevent conflicts
+            try {
+                const { createClient } = await import('@supabase/supabase-js');
+                const sb = createClient(process.env.REACT_APP_SUPABASE_URL, process.env.REACT_APP_SUPABASE_ANON_KEY);
+                await sb.auth.signOut();
+            } catch (e) {
+                console.warn('Could not sign out existing session', e);
+            }
+
             setAdminToken(data.token);
+            localStorage.removeItem('access_token'); 
             navigate('/admin', { replace: true });
         } catch (err) {
             setError('Could not connect to server');

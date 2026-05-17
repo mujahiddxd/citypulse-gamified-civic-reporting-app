@@ -240,6 +240,43 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Ward & Officer Section */}
+      <div className="card" style={{ marginBottom: '2rem' }}>
+        <div className="section-header">
+          <h2 className="section-title" style={{ fontSize: '1.1rem' }}>🏢 Local Wards & Officers</h2>
+          <Link to="/wards" style={{ fontSize: '0.8rem', color: 'var(--red-400)' }}>View Map</Link>
+        </div>
+        <div className="grid grid-2" style={{ gap: '1rem' }}>
+          {[
+            { name: "Thane Mumbra", officer: "Rajesh Kumar", contact: "+91 98765 43210", color: "#FF5722" },
+            { name: "Mumbai Kurla", officer: "Sneha Patil", contact: "+91 91234 56789", color: "#2196F3" }
+          ].map((ward, i) => (
+            <motion.div 
+              key={i}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.1 }}
+              style={{
+                padding: '1rem',
+                background: '#f8fafc',
+                borderRadius: '12px',
+                borderLeft: `4px solid ${ward.color}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem'
+              }}
+            >
+              <div style={{ fontSize: '1.5rem' }}>👨‍💼</div>
+              <div>
+                <div style={{ fontSize: '0.9rem', fontWeight: '900', color: '#1e293b' }}>{ward.name}</div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b' }}><span style={{ fontWeight: '700' }}>WHO IS IN CHARGE?</span> {ward.officer}</div>
+                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{ward.contact}</div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
       {/* Recent Complaints */}
       <div className="card">
         <div className="section-header">
