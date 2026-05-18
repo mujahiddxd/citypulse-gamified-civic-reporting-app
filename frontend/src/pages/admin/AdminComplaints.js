@@ -7,6 +7,7 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { SkeletonAdminTable } from '../../components/ui/SkeletonLoader';
+import { CommentThread } from '../PublicReports';
 
 // Fix leaflet icon paths
 delete L.Icon.Default.prototype._getIconUrl;
@@ -60,7 +61,7 @@ const AdminComplaints = () => {
     setActionLoading(prev => ({ ...prev, [id]: action }));
     try {
       await api.patch(`/admin/complaints/${id}/${action}`);
-      setComplaints(prev => prev.map(c => c.id === id ? { ...c, status: action === 'approve' ? 'Approved' : 'Rejected' } : c));
+      setComplaints(prev => prev.map(c => c.id === id ? { ...c, status: action === 'approve' ? 'Approved' : action === 'resolve' ? 'resolved' : 'Rejected' } : c));
     } catch (err) {
       alert('Action failed');
     } finally {
@@ -88,9 +89,9 @@ const AdminComplaints = () => {
     <AdminLayout title="📋 Complaint Management">
       {/* Filters */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        {['Pending', 'Approved', 'Rejected', ''].map(s => (
+        {['Pending', 'Approved', 'resolved', 'Rejected', ''].map(s => (
           <button key={s} className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => { setFilter(s); setPage(1); }}>
-            {s || 'All'} {s === 'Pending' ? '⏳' : s === 'Approved' ? '✅' : s === 'Rejected' ? '❌' : '📋'}
+            {s === 'resolved' ? 'Resolved' : s || 'All'} {s === 'Pending' ? '⏳' : s === 'Approved' ? '✅' : s === 'resolved' ? '🎉' : s === 'Rejected' ? '❌' : '📋'}
           </button>
         ))}
         <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: '2.2' }}>{total} total</span>
@@ -108,7 +109,7 @@ const AdminComplaints = () => {
               <AnimatePresence>
                 {complaints.map((c, i) => {
                   const severityColors = { Low: '#22c55e', Medium: '#f59e0b', High: '#ef4444' };
-                  const statusColors = { Pending: '#f59e0b', Approved: '#22c55e', Rejected: '#ef4444' };
+                  const statusColors = { Pending: '#f59e0b', Approved: '#22c55e', resolved: '#10b981', Rejected: '#ef4444' };
 
                   return (
                     <motion.div
@@ -261,6 +262,14 @@ const AdminComplaints = () => {
                             >{actionLoading[c.id] === 'reject' ? '...' : '❌ Reject'}</button>
                           </>
                         )}
+                        {c.status === 'Approved' && (
+                          <button
+                            className="btn btn-sm"
+                            disabled={!!actionLoading[c.id]}
+                            onClick={(e) => { e.stopPropagation(); handleAction(c.id, 'resolve'); }}
+                            style={{ flex: 1, justifyContent: 'center', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem' }}
+                          >{actionLoading[c.id] === 'resolve' ? '...' : '🎉 Mark Resolved'}</button>
+                        )}
                         {user?.role === 'admin' && (
                           <button
                             className="btn btn-sm"
@@ -296,7 +305,7 @@ const AdminComplaints = () => {
           const c = selectedDetail || selectedMapComplaint;
           const showMap = !!selectedMapComplaint;
           const severityColors = { Low: '#22c55e', Medium: '#f59e0b', High: '#ef4444' };
-          const statusColors = { Pending: '#f59e0b', Approved: '#22c55e', Rejected: '#ef4444' };
+          const statusColors = { Pending: '#f59e0b', Approved: '#22c55e', resolved: '#10b981', Rejected: '#ef4444' };
           return (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
@@ -470,6 +479,14 @@ const AdminComplaints = () => {
                     </MapContainer>
                   </div>
 
+                  {/* Community Comments Thread */}
+                  <div style={{ borderTop: '2px solid #e2e8f0', paddingTop: '1.25rem', marginBottom: '1.5rem' }}>
+                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', fontWeight: '900', color: '#0f172a', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      💬 Community Comments & Official Updates
+                    </h3>
+                    <CommentThread complaintId={c.id} user={user} />
+                  </div>
+
                   {/* Actions */}
                   {c.status === 'Pending' && (
                     <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -483,6 +500,15 @@ const AdminComplaints = () => {
                         onClick={() => { handleAction(c.id, 'reject'); setSelectedDetail(prev => prev ? { ...prev, status: 'Rejected' } : null); }}
                         style={{ flex: 1, padding: '0.85rem', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                       >{actionLoading[c.id] === 'reject' ? 'Processing...' : '❌ Reject Report'}</button>
+                    </div>
+                  )}
+                  {c.status === 'Approved' && (
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <button
+                        disabled={!!actionLoading[c.id]}
+                        onClick={() => { handleAction(c.id, 'resolve'); setSelectedDetail(prev => prev ? { ...prev, status: 'resolved' } : null); }}
+                        style={{ flex: 1, padding: '0.85rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                      >{actionLoading[c.id] === 'resolve' ? 'Processing...' : '🎉 Mark Report as Resolved'}</button>
                     </div>
                   )}
 

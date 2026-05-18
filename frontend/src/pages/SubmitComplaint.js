@@ -77,8 +77,18 @@ const MUNICIPALITY_MAP = {
   'Kanpur': 'Kanpur Municipal Corporation (KMC)',
   'Nagpur': 'Nagpur Municipal Corporation (NMC)',
   'Indore': 'Indore Municipal Corporation (IMC)',
-  'Thiruvananthapuram': 'Thiruvananthapuram Corporation',
 };
+
+const MMR_MUNICIPALITIES = [
+  'Brihanmumbai Municipal Corporation (BMC)',
+  'Thane Municipal Corporation (TMC)',
+  'Kalyan-Dombivli Municipal Corporation (KDMC)',
+  'Navi Mumbai Municipal Corporation (NMMC)',
+  'Vasai-Virar Municipal Corporation (VVMC)',
+  'Ulhasnagar Municipal Corporation (UMC)',
+  'Bhiwandi-Nizampur Municipal Corporation (BNMC)',
+  'Mira-Bhayandar Municipal Corporation (MBMC)',
+];
 
 const SubmitComplaint = () => {
   const { user } = useAuth();
@@ -173,17 +183,26 @@ const SubmitComplaint = () => {
         console.error('Failed to fetch AQI', err);
       }
 
-      if (areaName !== 'Unknown Area') {
+      const isMmr = MMR_MUNICIPALITIES.includes(municipality);
+
+      if (areaName !== 'Unknown Area' && isMmr) {
         try {
           const searchArea = suburb || town || areaName;
           const scoreRes = await api.get(`/complaints/area-score?area=${encodeURIComponent(searchArea)}`);
-          setAreaScore({ ...scoreRes.data, aqi: currentAqi });
+          const apiScore = scoreRes.data?.score;
+          setAreaScore({
+            score: (apiScore === 'N/A' || apiScore === null || apiScore === undefined) ? 5.0 : apiScore,
+            garbageCount: scoreRes.data?.garbageCount || 0,
+            aqi: currentAqi
+          });
         } catch (scoreErr) {
           console.error('Failed to fetch area score', scoreErr);
-          setAreaScore({ score: 'N/A', garbageCount: 0, aqi: currentAqi });
+          setAreaScore({ score: 5.0, garbageCount: 0, aqi: currentAqi });
         }
+      } else if (!isMmr) {
+        setAreaScore({ score: 'N/A', garbageCount: 0, aqi: currentAqi, outside: true });
       } else {
-        setAreaScore(currentAqi !== null ? { score: 'N/A', garbageCount: 0, aqi: currentAqi } : { score: 'N/A', garbageCount: 0, aqi: null });
+        setAreaScore({ score: 5.0, garbageCount: 0, aqi: currentAqi });
       }
 
     } catch (err) {
@@ -279,6 +298,53 @@ const SubmitComplaint = () => {
     setError('');
 
     try {
+      let currentAiResult = aiResult;
+
+      // 1. If AI analysis has NOT been run yet, run it automatically now!
+      if (!currentAiResult && imageFiles.length > 0) {
+        setError('🤖 Auto-Running AI Analysis on uploaded photos...');
+        
+        // Convert all files to base64
+        const base64Images = await Promise.all(
+          imageFiles.map((file) => {
+            return new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (ev) => resolve(ev.target.result);
+              reader.readAsDataURL(file);
+            });
+          })
+        );
+
+        const { data: aiData } = await api.post('/ai/analyze-batch', {
+          images: base64Images,
+        });
+
+        const anyVerified = aiData.results?.some((r) => r.verified === true);
+        const allFailed = aiData.results?.every((r) => r.verified === false);
+        const primaryResult = aiData.results?.[0] || {};
+
+        currentAiResult = {
+          verified: allFailed ? false : anyVerified ? true : null,
+          confidence: primaryResult.confidence || 0,
+          severity: primaryResult.severity,
+          mode: primaryResult.mode || 'ai_analyzed',
+          ai_available: primaryResult.ai_available ?? false,
+          userOverride: false,
+          similarity: aiData.similarity,
+          perPhotoResults: aiData.results,
+        };
+
+        setAiResult(currentAiResult);
+        setError('');
+      }
+
+      // 2. Strict Block: If AI says it is NOT garbage, block submission completely!
+      if (currentAiResult && currentAiResult.verified === false) {
+        setError('❌ AI Analysis Rejected: None of the uploaded photos were detected as garbage. To maintain platform integrity, only reports containing actual garbage/litter are accepted.');
+        setLoading(false);
+        return;
+      }
+
       // Upload ALL images to Supabase Storage
       const uploadedUrls = [];
 
@@ -310,11 +376,11 @@ const SubmitComplaint = () => {
         image_url: uploadedUrls[0] || null, // Keep for backward compatibility
         images: uploadedUrls,
         // AI verification metadata — stored for admin review
-        ai_verified: aiResult?.verified ?? null,
-        ai_confidence: aiResult?.confidence ?? null,
-        ai_severity: aiResult?.severity ?? null,
-        ai_user_override: aiResult?.userOverride ?? false,
-        ai_mode: aiResult?.mode ?? null,
+        ai_verified: currentAiResult?.verified ?? null,
+        ai_confidence: currentAiResult?.confidence ?? null,
+        ai_severity: currentAiResult?.severity ?? null,
+        ai_user_override: false,
+        ai_mode: currentAiResult?.mode ?? null,
       });
 
       setSuccess(true);
@@ -491,7 +557,7 @@ const SubmitComplaint = () => {
             )}
 
             <div style={{ borderRadius: '8px', overflow: 'hidden', border: '2px solid', borderColor: errors.location ? '#DC2626' : '#e5e7eb', flex: 1, minHeight: '350px' }}>
-              <MapContainer center={[20.5937, 78.9629]} zoom={5} style={{ height: '100%', width: '100%' }}>
+              <MapContainer center={[19.0760, 72.8777]} zoom={12} style={{ height: '100%', width: '100%' }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
                 <MapClickHandler onLocationSelect={handleLocationSelect} />
                 <MapRecenter position={position} />
@@ -532,6 +598,23 @@ const SubmitComplaint = () => {
               <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
                 Scanning area...
               </div>
+            ) : areaScore && areaScore.outside ? (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                style={{
+                  background: 'linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%)',
+                  border: '2px dashed #fca5a5', borderRadius: '12px', padding: '1.25rem',
+                  display: 'flex', gap: '0.75rem', alignItems: 'center'
+                }}>
+                <span style={{ fontSize: '1.5rem' }}>📍</span>
+                <div>
+                  <h4 style={{ margin: '0 0 0.25rem', fontFamily: 'var(--font-display)', fontSize: '0.85rem', textTransform: 'uppercase', color: '#991b1b' }}>
+                    Outside Supported Ward
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#7f1d1d', lineHeight: 1.4, fontWeight: '500' }}>
+                    This location is outside our official municipal Wards. Please pin a location inside one of our active Wards (Kurla, Vidyavihar, Mumbra, Ghansoli, Thakurli, Vashi, Nerul, Dombivli, Kalyan, Ghatkopar, Colaba, Marine Drive, Malabar Hill, Andheri, Bandra, Dadar, Borivali, Chembur) to see cleanliness statistics.
+                  </p>
+                </div>
+              </motion.div>
             ) : areaScore && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
                 style={{ background: 'white', border: '2px solid #111', borderRadius: '12px', padding: '1.25rem', boxShadow: '2px 2px 0px #111' }}>
@@ -733,29 +816,29 @@ const SubmitComplaint = () => {
               {/* Spacer to push submit button to bottom */}
               <div style={{ flex: 1 }}></div>
 
-              {aiResult && aiResult.verified === false && !aiResult.userOverride && (
+              {aiResult && aiResult.verified === false && (
                 <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
-                  style={{ padding: '0.85rem 1rem', background: '#fffbeb', border: '2px solid #fde68a', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={{ fontSize: '1.4rem' }}>⚠️</span>
-                  <div style={{ fontSize: '0.82rem', color: '#92400e', lineHeight: 1.4 }}>
-                    <strong>AI Warning:</strong> The photo wasn't identified as garbage. Please confirm via the AI panel on the left before submitting.
+                  style={{ padding: '0.85rem 1rem', background: '#fee2e2', border: '2px solid #fecaca', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.4rem' }}>❌</span>
+                  <div style={{ fontSize: '0.82rem', color: '#991b1b', lineHeight: 1.4, fontWeight: '700' }}>
+                    AI Rejection: The photo uploaded does not contain garbage. Submission is blocked.
                   </div>
                 </motion.div>
               )}
 
-              <button type="submit" disabled={loading || (aiResult?.verified === false && !aiResult?.userOverride)}
+              <button type="submit" disabled={loading || aiResult?.verified === false}
                 style={{
                   width: '100%', padding: '1.25rem', borderRadius: '10px', border: 'none',
-                  background: loading ? '#9ca3af' : (aiResult?.verified === false && !aiResult?.userOverride) ? '#d1d5db' : '#c62828',
+                  background: loading ? '#9ca3af' : aiResult?.verified === false ? '#ef4444' : '#c62828',
                   color: 'white', fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em',
-                  cursor: (loading || (aiResult?.verified === false && !aiResult?.userOverride)) ? 'not-allowed' : 'pointer',
+                  cursor: (loading || aiResult?.verified === false) ? 'not-allowed' : 'pointer',
                   boxShadow: loading ? 'none' : '0 8px 25px rgba(198,40,40,0.35)', transition: 'all 0.2s',
-                  opacity: (aiResult?.verified === false && !aiResult?.userOverride) ? 0.6 : 1,
+                  opacity: aiResult?.verified === false ? 0.6 : 1,
                 }}
-                onMouseOver={e => !loading && !(aiResult?.verified === false && !aiResult?.userOverride) && (e.currentTarget.style.transform = 'translateY(-2px)')}
-                onMouseOut={e => !loading && !(aiResult?.verified === false && !aiResult?.userOverride) && (e.currentTarget.style.transform = 'translateY(0)')}
+                onMouseOver={e => !loading && aiResult?.verified !== false && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                onMouseOut={e => !loading && aiResult?.verified !== false && (e.currentTarget.style.transform = 'translateY(0)')}
               >
-                {loading ? '⏳ Submitting Report...' : (aiResult?.verified === false && !aiResult?.userOverride) ? '🔒 Confirm AI Override to Submit' : '🚀 Submit Report'}
+                {loading ? '⏳ Submitting Report...' : aiResult?.verified === false ? '❌ Blocked: Non-Garbage Photo' : '🚀 Submit Report'}
               </button>
             </div>
           </div>

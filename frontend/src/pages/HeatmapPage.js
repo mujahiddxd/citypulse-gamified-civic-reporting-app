@@ -60,6 +60,28 @@ const getIcon = (severity) => {
   });
 };
 
+const WARD_PALETTE = [
+  '#ef4444', // Kurla - Coral Red
+  '#3b82f6', // Mumbra - Vibrant Blue
+  '#10b981', // Vidyavihar - Emerald
+  '#8b5cf6', // Thakurli - Purple
+  '#ec4899', // Ghansoli - Pink
+  '#f59e0b', // Colaba - Amber
+  '#06b6d4', // Marine Drive - Cyan
+  '#14b8a6', // Malabar Hill - Teal
+  '#a855f7', // Andheri West - Deep Purple
+  '#f97316', // Bandra West - Orange
+  '#6366f1', // Dadar West - Indigo
+  '#84cc16', // Borivali West - Lime
+  '#0d9488', // Chembur East - Dark Teal
+  '#f43f5e', // Vashi - Rose
+  '#eab308', // Nerul - Gold
+  '#475569', // Dombivli East - Slate
+  '#0284c7', // Sky Blue
+  '#d946ef', // Fuchsia
+  '#4ade80'  // Light Green
+];
+
 // Heatmap layer component using leaflet.heat
 const HeatmapLayer = ({ points, active }) => {
   const map = useMap();
@@ -83,10 +105,11 @@ const HeatmapLayer = ({ points, active }) => {
         const heatData = points.map(p => [p.lat, p.lng, p.intensity || 0.5]);
 
         heatLayerRef.current = window.L.heatLayer(heatData, {
-          radius: 35,
-          blur: 25,
+          radius: 45,
+          blur: 18,
           maxZoom: 16,
-          max: 1.0,
+          max: 0.3,
+          minOpacity: 0.5,
           gradient: { 0.2: '#22c55e', 0.5: '#eab308', 0.8: '#f97316', 1.0: '#ef4444' }
         }).addTo(map);
       }
@@ -125,69 +148,8 @@ const HeatmapPage = () => {
   const [zoneStatsLoading, setZoneStatsLoading] = useState(false);
   const [zoneExporting, setZoneExporting] = useState('');
   
-  // Ward boundary data — real geographic boundaries for Mumbra & Kurla
-  const dummyWards = [
-    {
-      id: 'ward-mumbra',
-      name: "Thane Mumbra",
-      officer: "Rajesh Kumar",
-      color: "#FF5722",
-      coordinates: [
-        [19.163, 73.012],
-        [19.165, 73.005],
-        [19.170, 72.998],
-        [19.176, 72.994],
-        [19.183, 72.992],
-        [19.190, 72.993],
-        [19.196, 72.996],
-        [19.203, 73.000],
-        [19.208, 73.006],
-        [19.212, 73.013],
-        [19.214, 73.020],
-        [19.213, 73.028],
-        [19.210, 73.035],
-        [19.205, 73.040],
-        [19.198, 73.044],
-        [19.190, 73.046],
-        [19.183, 73.045],
-        [19.176, 73.042],
-        [19.170, 73.038],
-        [19.166, 73.032],
-        [19.163, 73.024],
-        [19.162, 73.018],
-      ]
-    },
-    {
-      id: 'ward-kurla',
-      name: "Mumbai Kurla",
-      officer: "Sneha Patil",
-      color: "#2196F3",
-      coordinates: [
-        [19.055, 72.860],
-        [19.058, 72.855],
-        [19.063, 72.853],
-        [19.070, 72.852],
-        [19.078, 72.854],
-        [19.085, 72.856],
-        [19.092, 72.860],
-        [19.098, 72.866],
-        [19.102, 72.874],
-        [19.104, 72.882],
-        [19.103, 72.890],
-        [19.100, 72.898],
-        [19.096, 72.904],
-        [19.090, 72.908],
-        [19.083, 72.910],
-        [19.076, 72.910],
-        [19.070, 72.908],
-        [19.064, 72.904],
-        [19.058, 72.898],
-        [19.054, 72.890],
-        [19.052, 72.880],
-        [19.053, 72.870],
-      ]
-    }
-  ];
+  // Dynamic Wards/Zones state loaded dynamically from backend with curated harmonious colors
+  const [dummyWards, setDummyWards] = useState([]);
 
   // Checkbox severity filters (all on by default)
   const [severityFilters, setSeverityFilters] = useState({ High: true, Medium: true, Low: true });
@@ -238,7 +200,23 @@ const HeatmapPage = () => {
     }
   };
 
-  useEffect(() => { fetchHeatmap(); }, []);
+  const fetchWards = async () => {
+    try {
+      const { data } = await api.get('/wards/map');
+      const enrichedWards = (data.wards || []).map((w, idx) => ({
+        ...w,
+        color: WARD_PALETTE[idx % WARD_PALETTE.length]
+      }));
+      setDummyWards(enrichedWards);
+    } catch (e) {
+      console.error('Failed to load dynamic zones:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchHeatmap();
+    fetchWards();
+  }, []);
 
   // Clear ward selection when leaving zones mode
   useEffect(() => { if (viewMode !== 'sectors') { setSelectedZoneWard(null); setZoneWardStats(null); } }, [viewMode]);
@@ -317,7 +295,7 @@ const HeatmapPage = () => {
     finally { setZoneExporting(''); }
   }, [selectedZoneWard]);
 
-  // Export PDF — Per-complaint detailed report for municipality submission
+  // Export PDF — Premium Official Municipal Executive Audit Report
   const exportZonePDF = useCallback(async () => {
     if (!selectedZoneWard) return;
     setZoneExporting('pdf');
@@ -325,16 +303,6 @@ const HeatmapPage = () => {
       const { data } = await api.get(`/wards/${selectedZoneWard.id}/report`);
       const s = data.stats;
       const complaints = s.complaints || [];
-
-      // Capture map screenshot before building PDF
-      let mapImg = null;
-      const mapEl = document.querySelector('.leaflet-container');
-      if (mapEl) {
-        try {
-          const canvas = await html2canvas(mapEl, { useCORS: true, allowTaint: true, scale: 1 });
-          mapImg = canvas.toDataURL('image/jpeg', 0.8);
-        } catch(e) { console.warn('Map capture failed:', e); }
-      }
 
       const JsPDF = jsPDF.jsPDF || jsPDF;
       const doc = new JsPDF('p', 'mm', 'a4');
@@ -345,7 +313,7 @@ const HeatmapPage = () => {
       const addFooter = (pageNum, total) => {
         doc.setFillColor(15, 23, 42); doc.rect(0, 285, W, 12, 'F');
         doc.setTextColor(148, 163, 184); doc.setFontSize(7);
-        doc.text('CityPulse Civic Platform — Confidential Government Document — For Municipality Use Only', W / 2, 290, { align: 'center' });
+        doc.text('CityPulse Civic Platform — Confidential Government Document — For Official Municipality Use Only', W / 2, 290, { align: 'center' });
         doc.text(`Page ${pageNum} of ${total}`, W - M, 290, { align: 'right' });
       };
 
@@ -365,168 +333,278 @@ const HeatmapPage = () => {
         return [245, 158, 11]; // Pending
       };
 
-      // ── PAGE 1: COVER PAGE ────────────────────────────────────────────────────
+      const totalPages = complaints.length + 2; // Cover + Master Index + Complaints
+
+      // ── PAGE 1: EXECUTIVE COVER PAGE & DASHBOARD ──────────────────────────────
       // Dark header band
-      doc.setFillColor(15, 23, 42); doc.rect(0, 0, W, 50, 'F');
-      doc.setFillColor(198, 40, 40); doc.rect(0, 50, W, 3, 'F');
+      doc.setFillColor(15, 23, 42); doc.rect(0, 0, W, 45, 'F');
+      doc.setFillColor(234, 179, 8); doc.rect(0, 45, W, 2, 'F'); // Gold accent
 
-      // Logo text & title
-      doc.setTextColor(255, 220, 43); doc.setFontSize(22);
+      doc.setTextColor(255, 220, 43); doc.setFontSize(24); doc.setFont(undefined, 'bold');
       doc.text('CITYPULSE', M, 18);
-      doc.setTextColor(255, 255, 255); doc.setFontSize(13);
-      doc.text('Municipal Ward Complaint Report', M, 28);
+      doc.setTextColor(255, 255, 255); doc.setFontSize(14); doc.setFont(undefined, 'normal');
+      doc.text('MUNICIPAL CORPORATION CIVIC AUDIT & COMPLAINT REPORT', M, 28);
       doc.setFontSize(8); doc.setTextColor(160, 160, 160);
-      doc.text(`Report ID: ${data.reportId}`, M, 36);
-      doc.text(`Generated: ${new Date(data.generatedAt).toLocaleString()}`, M, 42);
-      doc.text('FOR OFFICIAL MUNICIPALITY USE ONLY', W - M, 42, { align: 'right' });
+      doc.text(`Report Reference ID: ${data.reportId}`, M, 36);
+      doc.text(`Audit Timestamp: ${new Date(data.generatedAt).toLocaleString()}`, M, 41);
+      doc.text('CLASSIFICATION: OFFICIAL / RESTRICTED', W - M, 41, { align: 'right' });
 
-      y = 62;
+      y = 56;
 
-      // Ward info block
-      doc.setTextColor(30, 41, 59); doc.setFontSize(17); doc.setFont(undefined, 'bold');
-      doc.text(data.ward.name, M, y); y += 8;
-      doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(100, 116, 139);
-      doc.text(`Assigned Officer: ${data.ward.officer}`, M, y); y += 5;
-      doc.text(`Contact: ${data.ward.contact}`, M, y); y += 5;
-      doc.text(`Ward ID: ${data.ward.id}`, M, y); y += 7;
+      // Executive Ward Info Block
+      doc.setTextColor(15, 23, 42); doc.setFontSize(18); doc.setFont(undefined, 'bold');
+      doc.text(data.ward.name.toUpperCase(), M, y); y += 8;
+      doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(71, 85, 105);
+      doc.text(`Assigned Executive Officer: ${data.ward.officer}`, M, y); y += 5;
+      doc.text(`Official Dispatch Contact: ${data.ward.contact}`, M, y); y += 5;
+      doc.text(`Geographic Center (Lat, Lng): ${data.ward.center[0].toFixed(4)}, ${data.ward.center[1].toFixed(4)}`, M, y); y += 8;
 
-      const descLines = doc.splitTextToSize(data.ward.description || '', W - 2 * M);
-      doc.setFontSize(9); doc.setTextColor(71, 85, 105);
-      doc.text(descLines, M, y); y += descLines.length * 5 + 8;
+      // Ward Description Box
+      doc.setFillColor(248, 250, 252); doc.roundedRect(M, y, W - 2 * M, 28, 2, 2, 'F');
+      doc.setDrawColor(226, 232, 240); doc.roundedRect(M, y, W - 2 * M, 28, 2, 2, 'S');
+      doc.setFontSize(8); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+      doc.text('WARD ADMINISTRATIVE JURISDICTION & OVERVIEW', M + 4, y + 6); doc.setFont(undefined, 'normal');
+      const descLines = doc.splitTextToSize(data.ward.description || 'No administrative description provided for this ward.', W - 2 * M - 8);
+      doc.setFontSize(8); doc.setTextColor(71, 85, 105);
+      doc.text(descLines, M + 4, y + 12);
+      y += 34;
 
-      // Summary stats box
-      doc.setFillColor(248, 250, 252); doc.roundedRect(M, y, W - 2 * M, 32, 3, 3, 'F');
-      doc.setDrawColor(226, 232, 240); doc.roundedRect(M, y, W - 2 * M, 32, 3, 3, 'S');
-      doc.setFontSize(8); doc.setTextColor(100, 116, 139);
-      doc.text('COMPLAINT SUMMARY', M + 4, y + 6);
-      const bw = (W - 2 * M) / 5;
-      [
-        { l: 'TOTAL', v: s.total, c: [30, 64, 175] },
-        { l: 'PENDING', v: s.pending, c: [161, 98, 7] },
-        { l: 'IN PROGRESS', v: s.inProgress, c: [88, 28, 135] },
-        { l: 'RESOLVED', v: s.resolved, c: [20, 83, 45] },
-        { l: 'REJECTED', v: s.rejected || 0, c: [153, 27, 27] },
-      ].forEach((st, i) => {
-        const cx = M + bw * i + bw / 2;
-        doc.setFontSize(16); doc.setTextColor(...st.c);
-        doc.text(String(st.v ?? 0), cx, y + 20, { align: 'center' });
-        doc.setFontSize(6); doc.setTextColor(100, 116, 139);
-        doc.text(st.l, cx, y + 27, { align: 'center' });
+      // Executive Summary Text Block
+      doc.setFontSize(11); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+      doc.text('1. Executive Operational Summary', M, y); y += 6; doc.setFont(undefined, 'normal');
+      const execText = `This document serves as the official municipal audit report for ${data.ward.name}, tracking citizen-reported civic grievances, departmental response metrics, and geographic risk distribution. As of ${new Date(data.generatedAt).toLocaleDateString()}, the active caseload comprises ${s.total} total reported issues, with ${s.pending} awaiting initial screening, ${s.inProgress} currently undergoing field remediation, and ${s.resolved} successfully resolved by municipal action squads. Immediate departmental focus is required for outstanding high-severity cases to maintain public health and infrastructure standards.`;
+      const execLines = doc.splitTextToSize(execText, W - 2 * M);
+      doc.setFontSize(9); doc.setTextColor(51, 65, 85);
+      doc.text(execLines, M, y); y += execLines.length * 5 + 8;
+
+      // Key Performance Indicators (KPI Grid)
+      doc.setFontSize(11); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+      doc.text('2. Departmental Performance & Caseload Metrics', M, y); y += 6; doc.setFont(undefined, 'normal');
+      
+      const kpiCards = [
+        { l: 'TOTAL CASELOAD', v: s.total, c: [30, 64, 175], bg: [239, 246, 255], bc: [191, 219, 254] },
+        { l: 'PENDING SCREENING', v: s.pending, c: [161, 98, 7], bg: [254, 243, 199], bc: [253, 230, 138] },
+        { l: 'FIELD OPERATIONS', v: s.inProgress, c: [107, 33, 168], bg: [243, 232, 255], bc: [233, 213, 255] },
+        { l: 'RESOLVED CASES', v: s.resolved, c: [22, 101, 52], bg: [240, 253, 244], bc: [187, 247, 208] },
+        { l: 'REJECTED / INVALID', v: s.rejected || 0, c: [153, 27, 27], bg: [254, 242, 242], bc: [254, 202, 202] },
+      ];
+      const cardW = (W - 2 * M - 16) / 5;
+      kpiCards.forEach((card, i) => {
+        const cx = M + i * (cardW + 4);
+        doc.setFillColor(...card.bg); doc.roundedRect(cx, y, cardW, 25, 2, 2, 'F');
+        doc.setDrawColor(...card.bc); doc.roundedRect(cx, y, cardW, 25, 2, 2, 'S');
+        doc.setFontSize(16); doc.setTextColor(...card.c); doc.setFont(undefined, 'bold');
+        doc.text(String(card.v ?? 0), cx + cardW / 2, y + 12, { align: 'center' });
+        doc.setFontSize(6); doc.setTextColor(71, 85, 105); doc.setFont(undefined, 'normal');
+        doc.text(card.l, cx + cardW / 2, y + 19, { align: 'center' });
       });
-      y += 40;
+      y += 32;
 
-      // Severity breakdown
-      doc.setFontSize(10); doc.setTextColor(30, 41, 59); doc.setFont(undefined, 'bold');
-      doc.text('Severity Breakdown', M, y); y += 6; doc.setFont(undefined, 'normal');
+      // Severity & Category Breakdown Table
+      doc.setFontSize(11); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+      doc.text('3. Risk Severity & Issue Category Analysis', M, y); y += 6; doc.setFont(undefined, 'normal');
+      
+      // Draw Table Header
+      doc.setFillColor(241, 245, 249); doc.rect(M, y, W - 2 * M, 8, 'F');
+      doc.setDrawColor(203, 213, 225); doc.rect(M, y, W - 2 * M, 8, 'S');
+      doc.setFontSize(8); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+      doc.text('RISK LEVEL', M + 4, y + 5.5);
+      doc.text('ACTIVE COUNT', M + 50, y + 5.5);
+      doc.text('DEPARTMENTAL ACTION PROTOCOL', M + 95, y + 5.5);
+      y += 8;
+
+      const protocols = {
+        High: 'MANDATORY IMMEDIATE DISPATCH (SLA < 24 HRS)',
+        Medium: 'STANDARD MUNICIPAL SCHEDULING (SLA < 72 HRS)',
+        Low: 'ROUTINE COMMUNITY MAINTENANCE & MONITORING'
+      };
       [{ k: 'High', c: [239, 68, 68] }, { k: 'Medium', c: [245, 158, 11] }, { k: 'Low', c: [34, 197, 94] }].forEach(sv => {
-        doc.setFillColor(...sv.c); doc.roundedRect(M, y - 3, 22, 5, 1, 1, 'F');
-        doc.setTextColor(255, 255, 255); doc.setFontSize(8);
-        doc.text(`${sv.k}: ${(s.severities || {})[sv.k] || 0}`, M + 11, y + 0.5, { align: 'center' });
-        y += 7;
+        doc.rect(M, y, W - 2 * M, 8, 'S');
+        doc.setFillColor(...sv.c); doc.roundedRect(M + 4, y + 1.5, 22, 5, 1, 1, 'F');
+        doc.setTextColor(255, 255, 255); doc.setFontSize(8); doc.setFont(undefined, 'bold');
+        doc.text(sv.k.toUpperCase(), M + 15, y + 5, { align: 'center' });
+        doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'normal');
+        doc.text(String((s.severities || {})[sv.k] || 0), M + 50, y + 5);
+        doc.setTextColor(71, 85, 105); doc.setFontSize(7.5);
+        doc.text(protocols[sv.k], M + 95, y + 5);
+        y += 8;
       });
-      y += 3;
 
-      // Map snapshot
-      if (mapImg) {
-        doc.setFontSize(10); doc.setTextColor(30, 41, 59); doc.setFont(undefined, 'bold');
-        doc.text('Ward Map Snapshot', M, y); y += 4; doc.setFont(undefined, 'normal');
-        const ih = Math.min(75, 282 - y);
-        if (ih > 20) { doc.addImage(mapImg, 'JPEG', M, y, W - 2 * M, ih); y += ih + 4; }
-      }
+      addFooter(1, totalPages);
 
-      addFooter(1, complaints.length + 1);
+      // ── PAGE 2: COMPLAINT MASTER INDEX TABLE ────────────────────────────────
+      doc.addPage(); y = M;
+      doc.setFillColor(15, 23, 42); doc.rect(0, 0, W, 22, 'F');
+      doc.setFillColor(234, 179, 8); doc.rect(0, 22, W, 2, 'F');
+      doc.setTextColor(255, 220, 43); doc.setFontSize(14); doc.setFont(undefined, 'bold');
+      doc.text('CITYPULSE — COMPLAINT MASTER INDEX', M, 14);
+      doc.setTextColor(255, 255, 255); doc.setFontSize(8); doc.setFont(undefined, 'normal');
+      doc.text(`Ward: ${data.ward.name} | Total Listed: ${complaints.length}`, M, 19);
 
-      // ── PAGES 2+: ONE COMPLAINT PER PAGE ─────────────────────────────────────
+      y = 32;
+      doc.setFontSize(11); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+      doc.text('Master Register of Citizen Grievances', M, y); y += 6; doc.setFont(undefined, 'normal');
+      
+      // Table Header
+      doc.setFillColor(241, 245, 249); doc.rect(M, y, W - 2 * M, 8, 'F');
+      doc.setDrawColor(203, 213, 225); doc.rect(M, y, W - 2 * M, 8, 'S');
+      doc.setFontSize(7.5); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+      doc.text('ID', M + 2, y + 5.5);
+      doc.text('TYPE', M + 22, y + 5.5);
+      doc.text('AREA / LANDMARK', M + 52, y + 5.5);
+      doc.text('SEVERITY', M + 125, y + 5.5);
+      doc.text('STATUS', M + 152, y + 5.5);
+      doc.text('DATE', M + 175, y + 5.5);
+      y += 8;
+
+      doc.setFont(undefined, 'normal');
+      complaints.forEach((c, idx) => {
+        if (y > 270) {
+          addFooter(2, totalPages);
+          doc.addPage(); y = M + 10;
+          doc.setFillColor(241, 245, 249); doc.rect(M, y, W - 2 * M, 8, 'F');
+          doc.setDrawColor(203, 213, 225); doc.rect(M, y, W - 2 * M, 8, 'S');
+          doc.setFontSize(7.5); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+          doc.text('ID', M + 2, y + 5.5); doc.text('TYPE', M + 22, y + 5.5); doc.text('AREA / LANDMARK', M + 52, y + 5.5); doc.text('SEVERITY', M + 125, y + 5.5); doc.text('STATUS', M + 152, y + 5.5); doc.text('DATE', M + 175, y + 5.5);
+          y += 8; doc.setFont(undefined, 'normal');
+        }
+        doc.rect(M, y, W - 2 * M, 8, 'S');
+        doc.setFontSize(7); doc.setTextColor(15, 23, 42);
+        doc.text(`CASE-${String(idx + 1).padStart(2, '0')}`, M + 2, y + 5);
+        doc.text(String(c.type || 'Garbage'), M + 22, y + 5);
+        doc.text(String(c.area_name || 'N/A').slice(0, 38), M + 52, y + 5);
+        
+        // Severity pill
+        doc.setFillColor(...sevColor(c.severity)); doc.roundedRect(M + 123, y + 1.5, 22, 5, 1, 1, 'F');
+        doc.setTextColor(255, 255, 255); doc.setFont(undefined, 'bold'); doc.text(String(c.severity || 'Low').toUpperCase(), M + 134, y + 5, { align: 'center' });
+        
+        // Status pill
+        doc.setFillColor(...statusColor(c.status)); doc.roundedRect(M + 148, y + 1.5, 24, 5, 1, 1, 'F');
+        doc.text(String(c.status || 'Pending').toUpperCase(), M + 160, y + 5, { align: 'center' });
+
+        doc.setTextColor(71, 85, 105); doc.setFont(undefined, 'normal');
+        doc.text(new Date(c.created_at).toLocaleDateString(), M + 175, y + 5);
+        y += 8;
+      });
+
+      addFooter(2, totalPages);
+
+      // ── PAGES 3+: DETAILED INVESTIGATION & ACTION SHEETS (1 PER COMPLAINT) ───
       complaints.forEach((complaint, idx) => {
-        doc.addPage();
-        y = M;
+        doc.addPage(); y = M;
 
         // Page header strip
-        doc.setFillColor(15, 23, 42); doc.rect(0, 0, W, 18, 'F');
-        doc.setFillColor(198, 40, 40); doc.rect(0, 18, W, 2, 'F');
-        doc.setTextColor(255, 220, 43); doc.setFontSize(9);
-        doc.text('CITYPULSE — COMPLAINT DETAIL', M, 8);
-        doc.setTextColor(160, 160, 160); doc.setFontSize(7);
-        doc.text(`Ward: ${data.ward.name}`, M, 13);
-        doc.text(`${idx + 1} of ${complaints.length}`, W - M, 13, { align: 'right' });
-        y = 28;
+        doc.setFillColor(15, 23, 42); doc.rect(0, 0, W, 20, 'F');
+        doc.setFillColor(234, 179, 8); doc.rect(0, 20, W, 2, 'F');
+        doc.setTextColor(255, 220, 43); doc.setFontSize(11); doc.setFont(undefined, 'bold');
+        doc.text('CITYPULSE — OFFICIAL INVESTIGATION & ACTION SHEET', M, 10);
+        doc.setTextColor(255, 255, 255); doc.setFontSize(8); doc.setFont(undefined, 'normal');
+        doc.text(`Ward: ${data.ward.name} | Case Sheet ${idx + 1} of ${complaints.length}`, M, 15);
+        y = 30;
 
-        // Complaint number badge
-        doc.setFillColor(30, 41, 59); doc.roundedRect(M, y, W - 2 * M, 10, 2, 2, 'F');
-        doc.setTextColor(255, 220, 43); doc.setFontSize(10);
-        doc.text(`COMPLAINT #${idx + 1}`, M + 4, y + 7);
-        doc.setTextColor(148, 163, 184); doc.setFontSize(7);
-        doc.text(`ID: ${complaint.id}`, W - M, y + 7, { align: 'right' });
-        y += 16;
+        // Complaint Header Card
+        doc.setFillColor(248, 250, 252); doc.roundedRect(M, y, W - 2 * M, 22, 2, 2, 'F');
+        doc.setDrawColor(203, 213, 225); doc.roundedRect(M, y, W - 2 * M, 22, 2, 2, 'S');
+        doc.setTextColor(15, 23, 42); doc.setFontSize(12); doc.setFont(undefined, 'bold');
+        doc.text(`GRIEVANCE CASE #${idx + 1}`, M + 4, y + 8);
+        doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.setFont(undefined, 'normal');
+        doc.text(`Official Log Timestamp: ${new Date(complaint.created_at).toLocaleString()}`, M + 4, y + 14);
+        doc.setFontSize(7); doc.setTextColor(148, 163, 184);
+        doc.text(`System Tracking UUID: ${complaint.id}`, M + 4, y + 19);
 
-        // Severity & Status badges side by side
+        // Severity & Status Badges inside the card
         const sev = complaint.severity || 'Unknown';
         const sta = complaint.status || 'Pending';
-        doc.setFillColor(...sevColor(sev)); doc.roundedRect(M, y, 35, 7, 1, 1, 'F');
-        doc.setTextColor(255, 255, 255); doc.setFontSize(8);
-        doc.text(`SEVERITY: ${sev.toUpperCase()}`, M + 17.5, y + 5, { align: 'center' });
+        doc.setFillColor(...sevColor(sev)); doc.roundedRect(M + 104, y + 6, 34, 8, 1, 1, 'F');
+        doc.setTextColor(255, 255, 255); doc.setFontSize(8); doc.setFont(undefined, 'bold');
+        doc.text(`RISK: ${sev.toUpperCase()}`, M + 121, y + 11.5, { align: 'center' });
 
-        doc.setFillColor(...statusColor(sta)); doc.roundedRect(M + 40, y, 35, 7, 1, 1, 'F');
-        doc.text(`STATUS: ${sta.toUpperCase()}`, M + 57.5, y + 5, { align: 'center' });
-        y += 14;
+        doc.setFillColor(...statusColor(sta)); doc.roundedRect(M + 140, y + 6, 36, 8, 1, 1, 'F');
+        doc.text(`STATUS: ${sta.toUpperCase()}`, M + 158, y + 11.5, { align: 'center' });
+        y += 28;
 
-        // Detail fields
-        const field = (label, value, isLong = false) => {
-          if (y > 270) { return; } // safety
-          doc.setFontSize(7); doc.setTextColor(100, 116, 139); doc.setFont(undefined, 'bold');
-          doc.text(label.toUpperCase(), M, y);
-          doc.setFont(undefined, 'normal'); doc.setTextColor(30, 41, 59); doc.setFontSize(9);
-          if (isLong) {
-            const lines = doc.splitTextToSize(String(value || 'N/A'), W - 2 * M);
-            doc.text(lines, M, y + 5);
-            y += lines.length * 5 + 9;
-          } else {
-            doc.text(String(value || 'N/A'), M, y + 5);
-            y += 12;
-          }
-          // light divider
-          doc.setDrawColor(241, 245, 249); doc.line(M, y - 2, W - M, y - 2);
-        };
+        // Section 1: Geographic & Location Metadata
+        doc.setFontSize(10); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+        doc.text('1. Geographic & Location Metadata', M, y); y += 6; doc.setFont(undefined, 'normal');
+        
+        doc.setFillColor(255, 255, 255); doc.roundedRect(M, y, W - 2 * M, 24, 2, 2, 'F');
+        doc.setDrawColor(226, 232, 240); doc.roundedRect(M, y, W - 2 * M, 24, 2, 2, 'S');
+        doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.setFont(undefined, 'bold');
+        doc.text('REPORTED AREA / LANDMARK:', M + 4, y + 6); doc.setFont(undefined, 'normal'); doc.setTextColor(15, 23, 42);
+        doc.text(complaint.area_name || 'No specific area landmark provided', M + 55, y + 6);
+        doc.line(M + 4, y + 9, W - M - 4, y + 9);
 
-        field('Complaint Type', complaint.type || 'Garbage');
-        field('Area Name', complaint.area_name || 'N/A');
-        field('Location (Lat, Lng)', complaint.latitude && complaint.longitude
-          ? `${parseFloat(complaint.latitude).toFixed(5)}, ${parseFloat(complaint.longitude).toFixed(5)}`
-          : 'Not provided');
-        field('Submission Date', new Date(complaint.created_at).toLocaleString());
-        field('Description / Details', complaint.description || 'No description provided.', true);
+        doc.setTextColor(100, 116, 139); doc.setFont(undefined, 'bold');
+        doc.text('GPS COORDINATES (LAT, LNG):', M + 4, y + 14); doc.setFont(undefined, 'normal'); doc.setTextColor(15, 23, 42);
+        doc.text(complaint.latitude && complaint.longitude ? `${parseFloat(complaint.latitude).toFixed(6)}, ${parseFloat(complaint.longitude).toFixed(6)}` : 'GPS Coordinates Unavailable', M + 55, y + 14);
+        doc.line(M + 4, y + 17, W - M - 4, y + 17);
 
-        // Officer action box
-        if (y < 240) {
-          doc.setFillColor(255, 251, 235); doc.roundedRect(M, y, W - 2 * M, 38, 2, 2, 'F');
-          doc.setDrawColor(245, 158, 11); doc.roundedRect(M, y, W - 2 * M, 38, 2, 2, 'S');
-          doc.setFontSize(8); doc.setTextColor(120, 53, 15); doc.setFont(undefined, 'bold');
-          doc.text('OFFICER ACTION / REMARKS', M + 4, y + 7); doc.setFont(undefined, 'normal');
-          doc.setFontSize(7); doc.setTextColor(100, 116, 139);
-          doc.text('Action Taken:', M + 4, y + 14);
-          doc.text('Date of Action:', M + 4, y + 21);
-          doc.text('Officer Signature:', M + 4, y + 28);
-          doc.text('_______________________________________', M + 40, y + 14);
-          doc.text('_______________________________________', M + 40, y + 21);
-          doc.text('_______________________', M + 40, y + 35);
-          y += 42;
-        }
+        doc.setTextColor(100, 116, 139); doc.setFont(undefined, 'bold');
+        doc.text('GRIEVANCE CLASSIFICATION:', M + 4, y + 22); doc.setFont(undefined, 'normal'); doc.setTextColor(15, 23, 42);
+        doc.text(`${complaint.type || 'Garbage'} Sanitation Issue`, M + 55, y + 22);
+        y += 30;
 
-        // Verification box
-        if (y < 265) {
-          doc.setFillColor(240, 253, 244); doc.roundedRect(M, y, W - 2 * M, 16, 2, 2, 'F');
-          doc.setDrawColor(34, 197, 94); doc.roundedRect(M, y, W - 2 * M, 16, 2, 2, 'S');
-          doc.setFontSize(7); doc.setTextColor(20, 83, 45); doc.setFont(undefined, 'bold');
-          doc.text('FOR MUNICIPAL VERIFICATION USE ONLY', M + 4, y + 6); doc.setFont(undefined, 'normal');
-          doc.setTextColor(100, 116, 139);
-          doc.text('Verified by: ________________________   Designation: ________________________   Date: ____________', M + 4, y + 12);
-          y += 20;
-        }
+        // Section 2: Citizen Description & AI Risk Assessment
+        doc.setFontSize(10); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+        doc.text('2. Citizen Grievance Description & Risk Assessment', M, y); y += 6; doc.setFont(undefined, 'normal');
 
-        addFooter(idx + 2, complaints.length + 1);
+        const descText = complaint.description || 'No detailed description was provided by the citizen during submission.';
+        const dLines = doc.splitTextToSize(descText, W - 2 * M - 8);
+        const boxH = Math.max(28, dLines.length * 5 + 16);
+
+        doc.setFillColor(255, 255, 255); doc.roundedRect(M, y, W - 2 * M, boxH, 2, 2, 'F');
+        doc.setDrawColor(226, 232, 240); doc.roundedRect(M, y, W - 2 * M, boxH, 2, 2, 'S');
+        
+        doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.setFont(undefined, 'bold');
+        doc.text('CITIZEN STATEMENT:', M + 4, y + 6); doc.setFont(undefined, 'normal'); doc.setTextColor(30, 41, 59);
+        doc.text(dLines, M + 4, y + 11);
+
+        // AI Risk Statement box at the bottom of description
+        const aiY = y + boxH - 12;
+        doc.setFillColor(254, 242, 242); doc.rect(M + 2, aiY, W - 2 * M - 4, 10, 'F');
+        doc.setFontSize(7.5); doc.setTextColor(153, 27, 27); doc.setFont(undefined, 'bold');
+        doc.text('AI AUTOMATED RISK ASSESSMENT:', M + 5, aiY + 4); doc.setFont(undefined, 'normal'); doc.setTextColor(127, 29, 29);
+        const aiMsg = sev === 'High' ? 'CRITICAL RISK: Potential public health hazard / pest breeding. Immediate dispatch recommended.' : 'MODERATE RISK: Standard environmental degradation. Schedule routine municipal cleanup.';
+        doc.text(aiMsg, M + 5, aiY + 8.5);
+        y += boxH + 6;
+
+        // Section 3: Official Municipal Action & Remediation Log
+        doc.setFontSize(10); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+        doc.text('3. Departmental Remediation & Action Log (Field Squad Use)', M, y); y += 6; doc.setFont(undefined, 'normal');
+
+        doc.setFillColor(255, 251, 235); doc.roundedRect(M, y, W - 2 * M, 65, 2, 2, 'F');
+        doc.setDrawColor(245, 158, 11); doc.roundedRect(M, y, W - 2 * M, 65, 2, 2, 'S');
+        
+        doc.setFontSize(8); doc.setTextColor(146, 64, 14); doc.setFont(undefined, 'bold');
+        doc.text('MUNICIPAL REMEDIATION PROTOCOL', M + 4, y + 6); doc.setFont(undefined, 'normal'); doc.setTextColor(30, 41, 59);
+        
+        const actY = y + 14;
+        doc.setFontSize(8); doc.setTextColor(100, 116, 139);
+        doc.text('Assigned Municipal Squad / Contractor:', M + 4, actY); doc.text('________________________________________________', M + 65, actY);
+        doc.text('On-Site Inspection Findings & Notes:', M + 4, actY + 10); doc.text('________________________________________________', M + 65, actY + 10); doc.text('________________________________________________', M + 65, actY + 15);
+        doc.text('Remediation Actions Taken:', M + 4, actY + 25); doc.text('________________________________________________', M + 65, actY + 25); doc.text('________________________________________________', M + 65, actY + 30);
+        doc.text('Date & Time of Field Resolution:', M + 4, actY + 40); doc.text('____________________', M + 65, actY + 40);
+        doc.text('Investigating Officer Signature:', M + 115, actY + 40); doc.text('____________________', M + 155, actY + 40);
+        y += 71;
+
+        // Section 4: Final Departmental Verification & Supervisory Sign-off
+        doc.setFontSize(10); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+        doc.text('4. Supervisory Verification & Final Sign-off', M, y); y += 6; doc.setFont(undefined, 'normal');
+
+        doc.setFillColor(240, 253, 244); doc.roundedRect(M, y, W - 2 * M, 22, 2, 2, 'F');
+        doc.setDrawColor(34, 197, 94); doc.roundedRect(M, y, W - 2 * M, 22, 2, 2, 'S');
+        
+        doc.setFontSize(8); doc.setTextColor(22, 101, 52); doc.setFont(undefined, 'bold');
+        doc.text('WARD SUPERVISOR / ASSISTANT COMMISSIONER APPROVAL', M + 4, y + 6); doc.setFont(undefined, 'normal');
+        
+        doc.setFontSize(8); doc.setTextColor(100, 116, 139);
+        doc.text('Verified By (Name): _______________________   Designation: _______________________   Date: ___________', M + 4, y + 13);
+        doc.text('Official Departmental Seal / Stamp: [                                     ]', M + 4, y + 19);
+
+        addFooter(idx + 3, totalPages);
       });
 
-      doc.save(`${data.ward.name}_Complaint_Report.pdf`);
+      doc.save(`${data.ward.name}_Executive_Audit_Report.pdf`);
     } catch(e) { console.error('PDF export error:', e); alert('PDF export failed: ' + e.message); }
     finally { setZoneExporting(''); }
   }, [selectedZoneWard]);
@@ -972,7 +1050,7 @@ const HeatmapPage = () => {
                     >
                       <Popup>
                         <div style={{ padding: '0.5rem', fontFamily: 'var(--font-display)' }}>
-                          <h4 style={{ margin: '0 0 0.5rem', color: ward.color }}>{ward.name} Ward</h4>
+                          <h4 style={{ margin: '0 0 0.5rem', color: ward.color }}>{ward.name.toLowerCase().includes('ward') ? ward.name : `${ward.name} Ward`}</h4>
                           <p style={{ margin: 0 }}><strong>OFFICER:</strong><br/>{ward.officer}</p>
                           <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#64748b' }}>Click ward for details & reports →</p>
                         </div>

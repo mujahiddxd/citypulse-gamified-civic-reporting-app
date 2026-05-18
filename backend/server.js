@@ -55,21 +55,21 @@ app.use(helmet());
 // CORS allows the React dev server (localhost:3000) to call this API.
 // In production, set FRONTEND_URL to your deployed domain.
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: [process.env.FRONTEND_URL || 'http://localhost:3000', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'],
   credentials: true // Allow cookies/auth headers
 }));
 
 // ── Rate Limiting ──────────────────────────────────────────────────────────────
-// General limit: max 100 requests per IP every 15 minutes
+// General limit: max 500 requests per IP every 15 minutes (relaxed for dev)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes in milliseconds
-  max: 100,
+  max: 500,
   message: 'Too many requests from this IP, please try again later.'
 });
 // Stricter limit for auth endpoints to prevent brute-force attacks
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 50,
   message: 'Too many authentication attempts.'
 });
 

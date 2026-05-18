@@ -131,6 +131,31 @@ router.patch('/complaints/:id/reject', requireOfficerOrAdmin, async (req, res) =
   res.json({ message: 'Complaint rejected', complaint: data });
 });
 
+// ── PATCH /api/admin/complaints/:id/resolve ───────────────────────────────────
+// Marks an approved complaint as resolved once the municipality completes the cleanup.
+router.patch('/complaints/:id/resolve', requireOfficerOrAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  const { data, error } = await supabase
+    .from('complaints')
+    .update({
+      status: 'resolved',
+      resolved_at: new Date().toISOString()
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  // Recalculate area score if applicable
+  if (data?.area_name) {
+    await supabase.rpc('update_area_score', { p_area_name: data.area_name });
+  }
+
+  res.json({ message: 'Complaint marked as resolved', complaint: data });
+});
+
 // ── DELETE /api/admin/complaints/:id ──────────────────────────────────────────
 // Permanently deletes a complaint from the database.
 // Restricted to ADMIN ONLY (officers should only approve/reject).

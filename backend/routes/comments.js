@@ -56,10 +56,15 @@ router.post('/', authenticate, async (req, res) => {
 
     const isOfficial = req.user.role === 'admin' || req.user.role === 'officer';
 
+    let commentText = content?.trim() || '';
+    if (!commentText && image_url) {
+        commentText = '📷 Shared a photo';
+    }
+
     const insertData = {
         complaint_id,
         user_id: req.user.id,
-        content: content?.trim() || '',
+        content: commentText,
         is_official_update: isOfficial && req.body.is_official_update === true,
     };
     // Only add image_url if provided (avoids null column issues if column doesn't exist yet)

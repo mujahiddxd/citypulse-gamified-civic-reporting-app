@@ -122,22 +122,15 @@ const MultiPhotoAIChecker = ({ imageFiles, imagePreviews, onResult }) => {
   // ── Idle State ──
   if (status === 'idle') {
     return (
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <button
-          type="button"
-          onClick={analyzeBatch}
-          style={{
-            width: '100%', padding: '0.85rem', borderRadius: '10px', border: 'none',
-            background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
-            color: 'white', fontFamily: 'var(--font-display)', fontWeight: 800,
-            fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.06em',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: '0.5rem', boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
-          }}
-        >
-          🤖 Analyze All {imageFiles.length} Photo{imageFiles.length > 1 ? 's' : ''} with AI
-        </button>
-      </motion.div>
+      <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '12px', padding: '1.25rem', textAlign: 'center' }}>
+        <span style={{ fontSize: '1.2rem' }}>🤖</span>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '0.8rem', textTransform: 'uppercase', color: '#64748b', marginTop: '0.3rem' }}>
+          AI Multi-Photo Check Queued
+        </div>
+        <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+          Verification will run automatically when you click "Submit Report"
+        </div>
+      </div>
     );
   }
 
@@ -315,51 +308,27 @@ const MultiPhotoAIChecker = ({ imageFiles, imagePreviews, onResult }) => {
             </motion.div>
           )}
 
-          {/* Warning if all photos failed verification */}
-          {allNotGarbage && !userOverride && (
+          {/* Strict block if all photos failed verification */}
+          {allNotGarbage && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
               style={{
-                background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px',
+                background: '#fee2e2', border: '1px solid #fecaca', borderRadius: '10px',
                 padding: '0.85rem', marginBottom: '0.75rem',
               }}>
               <div style={{ display: 'flex', gap: '0.6rem' }}>
-                <span style={{ fontSize: '1.3rem' }}>⚠️</span>
+                <span style={{ fontSize: '1.3rem' }}>❌</span>
                 <div>
-                  <h5 style={{ margin: '0 0 0.3rem', fontFamily: 'var(--font-display)', fontSize: '0.8rem', color: '#92400e' }}>
-                    AI didn't detect garbage in any photo
+                  <h5 style={{ margin: '0 0 0.3rem', fontFamily: 'var(--font-display)', fontSize: '0.8rem', color: '#991b1b' }}>
+                    Submission Blocked
                   </h5>
-                  <p style={{ margin: '0 0 0.5rem', fontSize: '0.78rem', color: '#78350f', lineHeight: 1.4 }}>
-                    None of the uploaded images were identified as containing garbage. You can still submit — an admin will review it.
+                  <p style={{ margin: '0', fontSize: '0.78rem', color: '#7f1d1d', lineHeight: 1.4, fontWeight: '600' }}>
+                    AI analysis has determined that none of the uploaded photos contain garbage. To maintain platform integrity, reporting non-garbage items is not allowed.
                   </p>
-                  <button type="button" onClick={handleOverride}
-                    style={{
-                      padding: '0.45rem 0.85rem', background: '#f59e0b', color: '#fff', border: 'none',
-                      borderRadius: '6px', fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer',
-                      fontFamily: 'var(--font-display)', textTransform: 'uppercase',
-                    }}>
-                    ✋ I'm sure — Submit Anyway
-                  </button>
                 </div>
               </div>
             </motion.div>
           )}
 
-          {/* Override confirmed */}
-          {allNotGarbage && userOverride && (
-            <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '8px', padding: '0.6rem 0.85rem', fontSize: '0.8rem', color: '#92400e', fontWeight: 600, marginBottom: '0.75rem' }}>
-              ✅ You've confirmed this is a valid report. It will be submitted for admin review.
-            </div>
-          )}
-
-          {/* Re-analyze button */}
-          <button type="button" onClick={() => { setStatus('idle'); setResults([]); setSimilarity(null); setUserOverride(false); if (onResult) onResult(null); }}
-            style={{
-              padding: '0.45rem 0.85rem', background: '#f1f5f9', color: '#475569',
-              border: '1px solid #e2e8f0', borderRadius: '6px', fontWeight: 700,
-              fontSize: '0.75rem', cursor: 'pointer',
-            }}>
-            🔄 Re-analyze All Photos
-          </button>
         </div>
       </div>
     </motion.div>

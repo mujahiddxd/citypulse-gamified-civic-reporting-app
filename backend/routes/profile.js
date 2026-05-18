@@ -27,17 +27,22 @@ const { authenticate } = require('../middleware/auth');
 const router = express.Router();
 
 // ── GET /api/profile/search ──────────────────────────────────────────────────
-// Returns users matching a search query. Used for the community feed search.
+// Returns users matching a search query. If no query, returns all users sorted by XP.
+// Used for the community Citizens tab on the public reports page.
 router.get('/search', async (req, res) => {
   const { q } = req.query;
-  if (!q) return res.json([]);
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('users')
     .select('id, username, xp, level, role')
-    .ilike('username', `%${q}%`)
-    .limit(5); // Limit to top 5 matches for UI clarity
+    .order('xp', { ascending: false })
+    .limit(50); // Cap at 50 so the page stays performant
 
+  if (q && q.trim()) {
+    query = query.ilike('username', `%${q.trim()}%`);
+  }
+
+  const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
   res.json(data || []);
 });

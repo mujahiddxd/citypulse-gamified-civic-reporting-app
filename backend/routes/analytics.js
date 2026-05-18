@@ -7,7 +7,7 @@
  * Routes (under /api/analytics):
  *   GET /overview              → High-level platform stats (counts, totals)
  *   GET /complaints-over-time  → Daily complaint counts for a line chart
- *   GET /type-distribution     → Garbage (for pie chart)
+ *   GET /severity-distribution → Severity levels (for pie chart)
  *   GET /area-counts           → Top 10 areas by approved complaint count (bar chart)
  *   GET /top-users             → Top 10 users by all-time XP
  */
@@ -90,15 +90,17 @@ router.get('/complaints-over-time', requireAdmin, async (req, res) => {
   res.json(Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date)));
 });
 
-// ── GET /api/analytics/type-distribution ─────────────────────────────────────
-// Returns how many complaints are of each type.
-// Used for a pie chart: "Garbage"
-router.get('/type-distribution', requireAdmin, async (req, res) => {
-  const { data } = await supabase.from('complaints').select('type');
-  const counts = {};
-  // Count occurrences of each type
-  data?.forEach(c => { counts[c.type] = (counts[c.type] || 0) + 1; });
-  // Format as [{name: 'Garbage', value: 42}, ...]  for chart libraries
+// ── GET /api/analytics/severity-distribution ─────────────────────────────────────
+// Returns how many complaints are of each severity (High, Medium, Low).
+// Used for a pie chart to analyze hot-spot urgencies.
+router.get('/severity-distribution', requireAdmin, async (req, res) => {
+  const { data } = await supabase.from('complaints').select('severity');
+  const counts = { High: 0, Medium: 0, Low: 0 };
+  // Count occurrences of each severity level
+  data?.forEach(c => { 
+    if (c.severity) counts[c.severity] = (counts[c.severity] || 0) + 1; 
+  });
+  // Format as [{name: 'High', value: 12}, ...] for Recharts pie chart
   res.json(Object.entries(counts).map(([name, value]) => ({ name, value })));
 });
 

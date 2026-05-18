@@ -175,8 +175,7 @@ const AppContent = () => {
         <Route path="/statistics" element={<Statistics />} />
         <Route path="/reports" element={<PublicReports />} />
         <Route path="/about" element={<About />} />
-        <Route path="/wards" element={<WardsPage />} />
-        <Route path="/ward-map" element={<WardMapPage />} />
+        <Route path="/wards" element={<WardMapPage />} />
 
         {/* Private routes — wrapped in PrivateRoute guard */}
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />

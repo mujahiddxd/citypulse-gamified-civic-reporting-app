@@ -44,7 +44,7 @@ const ChatbotWidget = () => {
     try {
       const history = messages.slice(-8).map(m => ({ role: m.role, content: m.content }));
       const { data } = await api.post('/chatbot', { message: messageToSend, history });
-      
+
       // Simulate slight delay for more natural feel
       setTimeout(() => {
         setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
@@ -74,29 +74,29 @@ const ChatbotWidget = () => {
             style={{
               width: '380px',
               height: '580px',
-              background: 'var(--bg-card)',
-              border: '1px solid rgba(255,255,255,0.1)',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
               borderRadius: '24px',
-              boxShadow: '0 25px 80px rgba(0,0,0,0.6), 0 0 40px rgba(239, 68, 68, 0.1)',
+              boxShadow: '0 25px 80px rgba(0,0,0,0.15), 0 0 40px rgba(14, 165, 233, 0.1)',
               display: 'flex',
               flexDirection: 'column',
               marginBottom: '1rem',
               overflow: 'hidden',
-              backdropFilter: 'blur(20px)',
+              backdropFilter: 'none',
             }}
           >
             {/* Header */}
-            <div style={{ 
-              background: 'linear-gradient(135deg, var(--red-700) 0%, var(--red-900) 100%)', 
-              padding: '1.25rem 1.5rem', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
+            <div style={{
+              background: 'linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%)',
+              padding: '1.25rem 1.5rem',
+              display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
               borderBottom: '1px solid rgba(255,255,255,0.1)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ 
-                  width: '40px', height: '40px', background: 'rgba(255,255,255,0.2)', 
+                <div style={{
+                  width: '40px', height: '40px', background: 'rgba(255, 255, 255, 1)',
                   borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '1.25rem'
                 }}>🤖</div>
@@ -109,10 +109,10 @@ const ChatbotWidget = () => {
                   </div>
                 </div>
               </div>
-              <button 
-                onClick={() => setOpen(false)} 
-                style={{ 
-                  background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', 
+              <button
+                onClick={() => setOpen(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white',
                   cursor: 'pointer', borderRadius: '50%', width: '32px', height: '32px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem'
                 }}
@@ -120,10 +120,10 @@ const ChatbotWidget = () => {
             </div>
 
             {/* Messages */}
-            <div style={{ 
-              flex: 1, overflowY: 'auto', padding: '1.25rem', 
+            <div style={{
+              flex: 1, overflowY: 'auto', padding: '1.25rem',
               display: 'flex', flexDirection: 'column', gap: '1rem',
-              background: 'linear-gradient(180deg, rgba(15,23,42,0.5) 0%, rgba(15,23,42,0.8) 100%)'
+              background: '#f8fafc'
             }}>
               {messages.map((msg, i) => (
                 <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -136,33 +136,33 @@ const ChatbotWidget = () => {
                     maxWidth: '85%',
                     padding: '0.85rem 1.1rem',
                     borderRadius: msg.role === 'user' ? '18px 18px 2px 18px' : '18px 18px 18px 2px',
-                    background: msg.role === 'user' ? 'var(--red-700)' : 'rgba(255,255,255,0.05)',
-                    border: msg.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                    background: msg.role === 'user' ? '#0ea5e9' : '#ffffff',
+                    border: msg.role === 'user' ? 'none' : '1px solid #e2e8f0',
                     fontSize: '0.9rem',
                     lineHeight: '1.6',
-                    color: msg.role === 'user' ? '#fff' : 'var(--text-primary)',
-                    boxShadow: msg.role === 'user' ? '0 4px 15px rgba(239,68,68,0.2)' : 'none',
+                    color: msg.role === 'user' ? '#fff' : '#1e293b',
+                    boxShadow: msg.role === 'user' ? '0 4px 15px rgba(14, 165, 233, 0.3)' : '0 2px 5px rgba(0,0,0,0.02)',
                     whiteSpace: 'pre-wrap'
                   }}>
                     {msg.content}
                   </div>
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '4px', padding: '0 4px' }}>
+                  <div style={{ fontSize: '0.65rem', color: msg.role === 'user' ? '#94a3b8' : '#64748b', marginTop: '4px', padding: '0 4px' }}>
                     {msg.role === 'user' ? 'You' : 'CityPulse AI'}
                   </div>
                 </motion.div>
               ))}
-              
+
               {loading && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                   style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                  <div style={{ 
-                    padding: '0.85rem 1.25rem', background: 'rgba(255,255,255,0.05)', 
-                    borderRadius: '18px 18px 18px 2px', border: '1px solid rgba(255,255,255,0.1)' 
+                  <div style={{
+                    padding: '0.85rem 1.25rem', background: '#ffffff',
+                    borderRadius: '18px 18px 18px 2px', border: '1px solid #e2e8f0'
                   }}>
                     <div style={{ display: 'flex', gap: '4px' }}>
-                      <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1 }} style={{ width: '6px', height: '6px', background: 'var(--text-muted)', borderRadius: '50%' }} />
-                      <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} style={{ width: '6px', height: '6px', background: 'var(--text-muted)', borderRadius: '50%' }} />
-                      <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} style={{ width: '6px', height: '6px', background: 'var(--text-muted)', borderRadius: '50%' }} />
+                      <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1 }} style={{ width: '6px', height: '6px', background: '#94a3b8', borderRadius: '50%' }} />
+                      <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} style={{ width: '6px', height: '6px', background: '#94a3b8', borderRadius: '50%' }} />
+                      <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} style={{ width: '6px', height: '6px', background: '#94a3b8', borderRadius: '50%' }} />
                     </div>
                   </div>
                 </motion.div>
@@ -172,22 +172,22 @@ const ChatbotWidget = () => {
 
             {/* Quick Replies */}
             {!loading && messages.length < 10 && (
-              <div style={{ 
-                padding: '0.5rem 1rem', display: 'flex', gap: '8px', overflowX: 'auto', 
-                background: 'rgba(15,23,42,0.8)', borderTop: '1px solid rgba(255,255,255,0.05)'
+              <div style={{
+                padding: '0.5rem 1rem', display: 'flex', gap: '8px', overflowX: 'auto',
+                background: '#f1f5f9', borderTop: '1px solid #e2e8f0'
               }} className="no-scrollbar">
                 {QUICK_REPLIES.map((reply, i) => (
                   <motion.button
                     key={i}
-                    whileHover={{ scale: 1.05, background: 'rgba(255,255,255,0.1)' }}
+                    whileHover={{ scale: 1.05, background: '#f8fafc' }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => sendMessage(reply.value)}
                     style={{
                       padding: '0.4rem 0.85rem',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
                       borderRadius: '999px',
-                      color: 'var(--text-secondary)',
+                      color: '#334155',
                       fontSize: '0.75rem',
                       fontWeight: '600',
                       whiteSpace: 'nowrap',
@@ -201,12 +201,12 @@ const ChatbotWidget = () => {
             )}
 
             {/* Input */}
-            <div style={{ 
-              padding: '1rem', 
-              borderTop: '1px solid rgba(255,255,255,0.1)', 
-              display: 'flex', 
+            <div style={{
+              padding: '1rem',
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
               gap: '0.75rem',
-              background: 'var(--bg-card)'
+              background: '#ffffff'
             }}>
               <input
                 className="form-input"
@@ -214,18 +214,19 @@ const ChatbotWidget = () => {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask our eco-expert anything..."
-                style={{ 
-                  flex: 1, 
-                  padding: '0.75rem 1rem', 
+                style={{
+                  flex: 1,
+                  padding: '0.75rem 1rem',
                   fontSize: '0.9rem',
                   borderRadius: '12px',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.1)'
+                  background: '#f1f5f9',
+                  border: '1px solid #e2e8f0',
+                  color: '#1e293b'
                 }}
               />
-              <button 
-                className="btn btn-primary btn-sm" 
-                onClick={() => sendMessage()} 
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => sendMessage()}
                 disabled={loading || !input.trim()}
                 style={{
                   width: '44px',
@@ -253,11 +254,11 @@ const ChatbotWidget = () => {
         style={{
           width: '64px', height: '64px',
           borderRadius: '20px',
-          background: 'linear-gradient(135deg, var(--red-600) 0%, var(--red-800) 100%)',
+          background: 'linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%)',
           border: 'none',
           cursor: 'pointer',
           fontSize: '1.75rem',
-          boxShadow: '0 8px 30px rgba(239, 68, 68, 0.4)',
+          boxShadow: '0 8px 30px rgba(14, 165, 233, 0.4)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: 'white',
           position: 'relative'
@@ -270,7 +271,7 @@ const ChatbotWidget = () => {
             transition={{ repeat: Infinity, duration: 2 }}
             style={{
               position: 'absolute', inset: '-4px', borderRadius: '24px',
-              border: '2px solid var(--red-500)', pointerEvents: 'none'
+              border: '2px solid #38bdf8', pointerEvents: 'none'
             }}
           />
         )}

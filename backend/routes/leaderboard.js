@@ -41,7 +41,7 @@ router.get('/', async (req, res) => {
     const { data: seasonComplaints, error: compErr } = await supabase
       .from('complaints')
       .select('user_id')
-      .eq('status', 'Approved')
+      .in('status', ['Approved', 'resolved'])
       .gte('approved_at', seasonStartDate); // Only complaints approved in this season
 
     if (compErr) throw compErr;
@@ -88,12 +88,11 @@ router.get('/', async (req, res) => {
         .select('badges (name, icon)')
         .eq('user_id', user.id);
 
-      // Count how many complaints this user has had approved (all-time)
       const { count: approvedCount } = await supabase
         .from('complaints')
-        .select('*', { count: 'exact', head: true }) // head:true = count only, no data returned
+        .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
-        .eq('status', 'Approved');
+        .in('status', ['Approved', 'resolved']);
 
       return {
         rank: index + 1, // 1-indexed rank

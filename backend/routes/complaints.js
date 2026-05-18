@@ -141,8 +141,9 @@ router.get('/public', async (req, res) => {
   if (status && status !== 'all') {
     query = query.eq('status', status);
   } else {
-    // Default: show resolved, in-progress, and approved (all "public" statuses)
-    query = query.in('status', ['resolved', 'in_progress', 'Approved']);
+    // Default: show only ACTIVE issues (Approved + In Progress).
+    // Resolved reports are hidden from the default feed — use the filter tab to see them.
+    query = query.in('status', ['in_progress', 'Approved']);
   }
   if (type) query = query.eq('type', type);
   

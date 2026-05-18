@@ -50,6 +50,203 @@ const WARD_DEFINITIONS = [
       [19.070, 72.908], [19.064, 72.904], [19.058, 72.898], [19.054, 72.890],
       [19.052, 72.880], [19.053, 72.870],
     ]
+  },
+  {
+    id: 'ward-thakurli-kdmc',
+    name: 'Thakurli KDMC E-Ward',
+    officer: 'Officer Priya Deshmukh',
+    contact: '+91 98765 11223',
+    center: [19.2204, 73.0828],
+    description: 'Thakurli is located in Thane district and is governed by the Kalyan-Dombivli Municipal Corporation (KDMC). It falls under the KDMC E-Ward covering parts of Dombivli East. A key suburban station on the Central Railway line between Kalyan and CSMT.',
+    coordinates: [
+      [19.210, 73.073], [19.212, 73.068], [19.215, 73.064], [19.219, 73.061],
+      [19.224, 73.059], [19.229, 73.060], [19.233, 73.063], [19.236, 73.068],
+      [19.237, 73.074], [19.236, 73.080], [19.233, 73.086], [19.229, 73.090],
+      [19.224, 73.093], [19.219, 73.093], [19.214, 73.090], [19.211, 73.086],
+      [19.209, 73.080], [19.209, 73.076],
+    ]
+  },
+  {
+    id: 'ward-vidyavihar-n',
+    name: 'Mumbai Vidyavihar (N Ward)',
+    officer: 'Officer Anand Mehta',
+    contact: '+91 98200 55667',
+    center: [19.085, 72.915],
+    description: 'Vidyavihar falls under N Ward of the BMC, covering prominent educational institutions (like Somaiya Vidyavihar campus) and residential zones between Kurla and Ghatkopar.',
+    coordinates: [
+      [19.075, 72.905], [19.080, 72.902], [19.085, 72.901], [19.092, 72.902],
+      [19.098, 72.905], [19.102, 72.910], [19.105, 72.918], [19.102, 72.925],
+      [19.095, 72.930], [19.088, 72.928], [19.080, 72.922], [19.075, 72.915]
+    ]
+  },
+  {
+    id: 'ward-ghansoli-nmmc',
+    name: 'Navi Mumbai Ghansoli (NMMC)',
+    officer: 'Officer Suresh Gawde',
+    contact: '+91 98330 12345',
+    center: [19.155, 72.995],
+    description: 'Ghansoli is a major node in Navi Mumbai under the Navi Mumbai Municipal Corporation (NMMC). It spans multiple sectors (Sectors 1-21, Ghansoli Gaothan, Talavali) along the Trans-Harbour railway line.',
+    coordinates: [
+      [19.140, 72.990], [19.145, 72.985], [19.152, 72.983], [19.160, 72.985],
+      [19.165, 72.990], [19.168, 72.998], [19.165, 73.005], [19.158, 73.010],
+      [19.150, 73.008], [19.142, 73.002], [19.140, 72.990]
+    ]
+  },
+  {
+    id: 'ward-vashi-nmmc',
+    name: 'Navi Mumbai Vashi (NMMC)',
+    officer: 'Officer Ramesh Kadam',
+    contact: '+91 98112 33445',
+    center: [19.0785, 72.9992],
+    description: 'Vashi node is the primary commercial heart and gateway node of Navi Mumbai, beautifully planned by CIDCO under NMMC jurisdiction. Features Sector 17 commercial hub and Vashi station.',
+    coordinates: [
+      [19.068, 72.985], [19.075, 72.880], [19.088, 72.985], [19.092, 72.998],
+      [19.088, 73.010], [19.075, 73.015], [19.068, 72.999], [19.068, 72.985]
+    ]
+  },
+  {
+    id: 'ward-nerul-nmmc',
+    name: 'Navi Mumbai Nerul (NMMC)',
+    officer: 'Officer Deepak Sawant',
+    contact: '+91 98223 44556',
+    center: [19.0330, 73.0190],
+    description: 'Nerul is the largest residential node in Navi Mumbai, featuring Sector 15 Palm Beach, DY Patil stadium, and many educational institutes under NMMC governance.',
+    coordinates: [
+      [19.015, 73.010], [19.022, 73.000], [19.035, 73.002], [19.045, 73.012],
+      [19.042, 73.028], [19.030, 73.035], [19.018, 73.028], [19.015, 73.010]
+    ]
+  },
+  {
+    id: 'ward-dombivli-east-kdmc',
+    name: 'Dombivli East Ward (KDMC)',
+    officer: 'Officer Sandeep Patil',
+    contact: '+91 98990 88776',
+    center: [19.2184, 73.0868],
+    description: 'Dombivli East is a highly populated cultural and residential node in Thane district under Kalyan-Dombivli Municipal Corporation (KDMC) governance.',
+    coordinates: [
+      [19.205, 73.078], [19.210, 73.070], [19.222, 73.072], [19.228, 73.080],
+      [19.228, 73.092], [19.215, 73.095], [19.208, 73.088], [19.205, 73.078]
+    ]
+  },
+  {
+    id: 'ward-kalyan-west-kdmc',
+    name: 'Kalyan West Ward (KDMC)',
+    officer: 'Officer Vijay Shinde',
+    contact: '+91 98770 66554',
+    center: [19.2403, 73.1305],
+    description: 'Kalyan West is a prominent historic and residential hub governed by KDMC, containing the Kalyan Central junction and major municipal offices.',
+    coordinates: [
+      [19.228, 73.120], [19.235, 73.110], [19.248, 73.112], [19.255, 73.125],
+      [19.252, 73.140], [19.240, 73.145], [19.230, 73.135], [19.228, 73.120]
+    ]
+  },
+  {
+    id: 'ward-ghatkopar-east',
+    name: 'Mumbai Ghatkopar East (N Ward)',
+    officer: 'Officer Neha Shah',
+    contact: '+91 98110 55443',
+    center: [19.0860, 72.9080],
+    description: 'Ghatkopar East is a premium commercial and residential hub in BMC N-Ward, featuring broad roads, metro connectivity, and multiple clean parks.',
+    coordinates: [
+      [19.076, 72.898], [19.082, 72.893], [19.092, 72.895], [19.096, 72.905],
+      [19.094, 72.918], [19.082, 72.920], [19.076, 72.910], [19.076, 72.898]
+    ]
+  },
+  {
+    id: 'ward-colaba',
+    name: 'Mumbai Colaba (A Ward)',
+    officer: 'Officer Milind Deora',
+    contact: '+91 98111 22334',
+    center: [18.9067, 72.8147],
+    description: 'Colaba is the southernmost tip of Mumbai (A Ward), containing iconic landmarks such as the Gateway of India and the Taj Mahal Palace hotel.',
+    coordinates: [
+      [18.895, 72.805], [18.905, 72.798], [18.918, 72.808], [18.922, 72.822],
+      [18.912, 72.832], [18.900, 72.825], [18.895, 72.805]
+    ]
+  },
+  {
+    id: 'ward-marinedrive',
+    name: 'Mumbai Marine Drive (A Ward)',
+    officer: 'Officer Sanjay Barve',
+    contact: '+91 98222 33445',
+    center: [18.9430, 72.8230],
+    description: 'Marine Drive is a 3-kilometre-long promenade along the Netaji Subhash Chandra Bose Road in South Mumbai. A prominent BMC A-Ward coastal strip.',
+    coordinates: [
+      [18.928, 72.815], [18.938, 72.810], [18.952, 72.818], [18.955, 72.830],
+      [18.943, 72.838], [18.932, 72.830], [18.928, 72.815]
+    ]
+  },
+  {
+    id: 'ward-malabarhill',
+    name: 'Mumbai Malabar Hill (D Ward)',
+    officer: 'Officer Aditya Thackeray',
+    contact: '+91 98333 44556',
+    center: [18.9548, 72.7985],
+    description: 'Malabar Hill is a premium residential hill in South Mumbai (D Ward), containing the Hanging Gardens, Raj Bhavan, and the official residences of the Chief Minister.',
+    coordinates: [
+      [18.945, 72.790], [18.955, 72.785], [18.968, 72.792], [18.968, 72.805],
+      [18.955, 72.810], [18.948, 72.802], [18.945, 72.790]
+    ]
+  },
+  {
+    id: 'ward-andheriwest',
+    name: 'Mumbai Andheri West (K-West Ward)',
+    officer: 'Officer Vinod Ghosalkar',
+    contact: '+91 98114 45566',
+    center: [19.1363, 72.8293],
+    description: 'Andheri West is a bustling commercial and entertainment hub in Mumbai (BMC K-West Ward), containing Lokhandwala Complex, Versova Beach, and major production houses.',
+    coordinates: [
+      [19.125, 72.820], [19.135, 72.815], [19.148, 72.822], [19.152, 72.835],
+      [19.140, 72.842], [19.128, 72.835], [19.125, 72.820]
+    ]
+  },
+  {
+    id: 'ward-bandrawest',
+    name: 'Mumbai Bandra West (H-West Ward)',
+    officer: 'Officer Ashish Shelar',
+    contact: '+91 98225 56677',
+    center: [19.0596, 72.8295],
+    description: 'Bandra West is a trendy coastal suburb in Mumbai (BMC H-West Ward), known as the "Queen of the Suburbs". Home to Bandstand Promenade, Carter Road, and many celebrities.',
+    coordinates: [
+      [19.048, 72.820], [19.058, 72.815], [19.070, 72.822], [19.072, 72.835],
+      [19.060, 72.842], [19.050, 72.835], [19.048, 72.820]
+    ]
+  },
+  {
+    id: 'ward-dadarwest',
+    name: 'Mumbai Dadar West (G-North Ward)',
+    officer: 'Officer Sada Sarvankar',
+    contact: '+91 98336 67788',
+    center: [19.0178, 72.8378],
+    description: 'Dadar West is a prominent residential and shopping hub in Central Mumbai (BMC G-North Ward), featuring Shivaji Park, Dadar Chowpatty, and the iconic Siddhivinayak Temple.',
+    coordinates: [
+      [19.008, 72.830], [19.018, 72.825], [19.028, 72.832], [19.030, 72.845],
+      [19.018, 72.850], [19.010, 72.842], [19.008, 72.830]
+    ]
+  },
+  {
+    id: 'ward-borivaliwest',
+    name: 'Mumbai Borivali West (R-Central Ward)',
+    officer: 'Officer Sunil Rane',
+    contact: '+91 98447 78899',
+    center: [19.2292, 72.8573],
+    description: 'Borivali West is a highly residential suburb in Northern Mumbai (BMC R-Central Ward), bordering the scenic Sanjay Gandhi National Park and featuring Gorai Creek access.',
+    coordinates: [
+      [19.218, 72.850], [19.228, 72.845], [19.240, 72.852], [19.242, 72.865],
+      [19.230, 72.870], [19.220, 72.862], [19.218, 72.850]
+    ]
+  },
+  {
+    id: 'ward-chembur' ,
+    name: 'Mumbai Chembur East (M-West Ward)',
+    officer: 'Officer Nawab Malik',
+    contact: '+91 98558 89900',
+    center: [19.0622, 72.8974],
+    description: 'Chembur East is a green, historical suburb in Eastern Mumbai (BMC M-West Ward), famous for the industrial corridors, fine eateries, and the Bombay Presidency Golf Club.',
+    coordinates: [
+      [19.050, 72.890], [19.060, 72.885], [19.072, 72.892], [19.075, 72.905],
+      [19.062, 72.912], [19.052, 72.905], [19.050, 72.890]
+    ]
   }
 ];
 
@@ -136,7 +333,7 @@ function getWardStats(wardDef, allComplaints) {
     severities,
     monthlyTrend,
     loadLevel,
-    complaints: wardComplaints.map(c => ({
+    complaints: wardComplaints.filter(c => c.status !== 'Pending' && c.status !== 'Rejected').map(c => ({
       id: c.id,
       type: c.type,
       severity: c.severity,

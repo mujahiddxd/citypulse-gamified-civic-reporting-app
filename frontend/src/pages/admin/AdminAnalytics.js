@@ -27,7 +27,7 @@ const AdminAnalytics = () => {
     try {
       const [time, type, area, users] = await Promise.all([
         api.get('/analytics/complaints-over-time'),
-        api.get('/analytics/type-distribution'),
+        api.get('/analytics/severity-distribution'),
         api.get('/analytics/area-counts'),
         api.get('/analytics/top-users'),
       ]);
@@ -74,10 +74,10 @@ const AdminAnalytics = () => {
         </motion.div>
 
         <div className="grid grid-2">
-          {/* Type Distribution */}
+          {/* Severity Distribution */}
           <motion.div className="card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', textTransform: 'uppercase', marginBottom: '1.5rem', color: 'var(--text-secondary)' }}>
-              🥧 Complaint Type Distribution
+              🥧 Complaint Severity Distribution
             </h3>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>

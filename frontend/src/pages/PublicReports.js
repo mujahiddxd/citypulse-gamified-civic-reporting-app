@@ -299,7 +299,7 @@ const ReportModal = ({ report, onClose, user }) => {
 };
 
 // ── Comment Thread Component ────────────────────────────────────────────────────
-const CommentThread = ({ complaintId, user }) => {
+export const CommentThread = ({ complaintId, user }) => {
     const [comments, setComments] = useState([]);
     const [loadingComments, setLoadingComments] = useState(true);
     const [commentError, setCommentError] = useState('');
@@ -309,6 +309,7 @@ const CommentThread = ({ complaintId, user }) => {
     const [isOfficialUpdate, setIsOfficialUpdate] = useState(false);
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
+    const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = React.useRef(null);
 
     const isPrivileged = user?.role === 'admin' || user?.role === 'officer';
@@ -333,14 +334,36 @@ const CommentThread = ({ complaintId, user }) => {
 
     useEffect(() => { fetchComments(); }, [fetchComments]);
 
-    const handleImageSelect = (e) => {
-        const file = e.target.files?.[0];
+    const handleFile = (file) => {
         if (!file) return;
+        if (!file.type.startsWith('image/')) { setPostError('Only images are allowed'); return; }
         if (file.size > 5 * 1024 * 1024) { setPostError('Image must be under 5MB'); return; }
+        setPostError('');
         setImageFile(file);
         const reader = new FileReader();
         reader.onload = (ev) => setImagePreview(ev.target.result);
         reader.readAsDataURL(file);
+    };
+
+    const handleImageSelect = (e) => handleFile(e.target.files?.[0]);
+
+    const handlePaste = (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                e.preventDefault();
+                handleFile(items[i].getAsFile());
+                break;
+            }
+        }
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer?.files?.[0];
+        if (file) handleFile(file);
     };
 
     const clearImage = () => {
@@ -356,16 +379,22 @@ const CommentThread = ({ complaintId, user }) => {
         try {
             let uploadedImageUrl = null;
             if (imageFile) {
-                const { createClient } = await import('@supabase/supabase-js');
-                const sb = createClient(process.env.REACT_APP_SUPABASE_URL, process.env.REACT_APP_SUPABASE_ANON_KEY);
-                const ext = imageFile.name.split('.').pop();
-                const fileName = `comment_${Date.now()}_${Math.random().toString(36).substr(2, 6)}.${ext}`;
-                const { error: uploadErr } = await sb.storage.from('comment-images').upload(fileName, imageFile, { contentType: imageFile.type });
-                if (!uploadErr) {
-                    const { data: urlData } = sb.storage.from('comment-images').getPublicUrl(fileName);
-                    uploadedImageUrl = urlData?.publicUrl;
-                } else {
-                    console.warn('Image upload failed:', uploadErr.message);
+                try {
+                    const { data: uploadData } = await api.post('/complaints/upload-image', {
+                        filename: imageFile.name || 'comment.png',
+                        contentType: imageFile.type || 'image/png'
+                    });
+                    await fetch(uploadData.uploadUrl, {
+                        method: 'PUT',
+                        body: imageFile,
+                        headers: { 'Content-Type': imageFile.type || 'image/png' }
+                    });
+                    uploadedImageUrl = uploadData.publicUrl;
+                } catch (imgErr) {
+                    console.error('Image upload failed:', imgErr);
+                    setPostError('Failed to upload comment image. Please try again.');
+                    setPosting(false);
+                    return;
                 }
             }
             const payload = {
@@ -445,8 +474,13 @@ const CommentThread = ({ complaintId, user }) => {
             {/* Comment input */}
             {user ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '0.25rem' }}>
-                    <textarea value={text} onChange={e => setText(e.target.value)} placeholder="Write a comment…" maxLength={500} rows={2}
-                        style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '10px', border: `1.5px solid ${postError ? '#ef4444' : '#cbd5e1'}`, resize: 'vertical', fontSize: '0.88rem', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box', background: '#f8fafc' }} />
+                    <textarea value={text} onChange={e => setText(e.target.value)} 
+                        onPaste={handlePaste}
+                        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                        onDragLeave={() => setIsDragging(false)}
+                        onDrop={handleDrop}
+                        placeholder="Write a comment... (You can also paste or drag & drop an image here!)" maxLength={500} rows={2}
+                        style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '10px', border: `1.5px solid ${isDragging ? '#3b82f6' : (postError ? '#ef4444' : '#cbd5e1')}`, resize: 'vertical', fontSize: '0.88rem', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box', background: isDragging ? '#eff6ff' : '#f8fafc' }} />
                     {imagePreview && (
                         <div style={{ position: 'relative', display: 'inline-block', maxWidth: '180px' }}>
                             <img src={imagePreview} alt="Preview" style={{ width: '100%', maxHeight: '100px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #e2e8f0' }} />
@@ -605,22 +639,19 @@ const PublicReports = () => {
             if (typeFilter) params.append('type', typeFilter);
             if (debouncedSearch) params.append('search', debouncedSearch);
             
-            // Parallel fetch reports and matching users (if searching)
-            const fetchers = [api.get(`/complaints/public?${params}`)];
-            if (debouncedSearch) {
-                fetchers.push(api.get(`/profile/search?q=${debouncedSearch}`));
-            }
-
-            const results = await Promise.all(fetchers);
-            setReports(results[0].data || []);
-            if (results[1]) setMatchedUsers(results[1].data || []);
-            else setMatchedUsers([]);
+            // Always fetch both reports and citizens in parallel
+            const [reportsRes, usersRes] = await Promise.all([
+                api.get(`/complaints/public?${params}`),
+                api.get(`/profile/search${debouncedSearch ? `?q=${debouncedSearch}` : ''}`)
+            ]);
+            setReports(reportsRes.data || []);
+            setMatchedUsers(usersRes.data || []);
 
             // Check if there's an ID in the URL to auto-open
             const searchParams = new URLSearchParams(location.search);
             const reportId = searchParams.get('id');
-            if (reportId && results[0].data) {
-                const found = results[0].data.find(r => r.id === reportId);
+            if (reportId && reportsRes.data) {
+                const found = reportsRes.data.find(r => r.id === reportId);
                 if (found) setSelectedReport(found);
             }
         } catch (err) {
