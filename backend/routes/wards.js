@@ -467,3 +467,5 @@ router.get('/:id/report', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.WARD_DEFINITIONS = WARD_DEFINITIONS;
+module.exports.isPointInPolygon = isPointInPolygon;

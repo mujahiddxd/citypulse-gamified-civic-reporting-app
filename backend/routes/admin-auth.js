@@ -22,11 +22,13 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const { WARD_DEFINITIONS } = require('./wards');
 
 // Admin credentials and JWT secret from environment variables.
 // Defaults are for development only — ALWAYS change these in production!
 const ADMIN_ID = process.env.ADMIN_ID || 'CITYPULSE_ADMIN';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'GMAP@Admin#2026';
+const OFFICER_PASS = process.env.OFFICER_PASS || 'Officer@2026';
 const JWT_SECRET = process.env.ADMIN_JWT_SECRET || 'citypulse-admin-secret-key-2026';
 
 // ── POST /api/admin-auth/login ────────────────────────────────────────────────
@@ -41,21 +43,40 @@ router.post('/login', (req, res) => {
         return res.status(400).json({ error: 'Admin ID and password are required' });
     }
 
-    // Simple credential check (constant-time comparison not needed for admin panel)
-    if (admin_id !== ADMIN_ID || admin_pass !== ADMIN_PASS) {
-        return res.status(401).json({ error: 'Invalid Admin ID or Password' });
+    // Check Admin credentials
+    if (admin_id === ADMIN_ID && admin_pass === ADMIN_PASS) {
+        const token = jwt.sign(
+            { role: 'admin', admin_id, iat: Date.now() },
+            JWT_SECRET,
+            { expiresIn: '8h' }
+        );
+        return res.json({ success: true, token, role: 'admin' });
     }
 
-    // Sign a JWT payload with role:'admin' and the admin's ID
-    // expiresIn: '8h' means this token auto-expires after 8 hours
-    const token = jwt.sign(
-        { role: 'admin', admin_id, iat: Date.now() },
-        JWT_SECRET,
-        { expiresIn: '8h' }
-    );
+    // Check common Officer credentials (officer-mumbai)
+    const cleanId = admin_id.toLowerCase().trim();
+    if (cleanId === 'officer-mumbai' && (admin_pass === OFFICER_PASS || admin_pass === ADMIN_PASS)) {
+        const token = jwt.sign(
+            { 
+                role: 'officer', 
+                admin_id, 
+                ward_id: 'all', 
+                ward_name: 'Mumbai City', 
+                iat: Date.now() 
+            },
+            JWT_SECRET,
+            { expiresIn: '8h' }
+        );
+        return res.json({ 
+            success: true, 
+            token, 
+            role: 'officer', 
+            ward_id: 'all', 
+            ward_name: 'Mumbai City' 
+        });
+    }
 
-    // The frontend stores this token in localStorage as 'citypulse_admin_token'
-    res.json({ success: true, token, role: 'admin' });
+    return res.status(401).json({ error: 'Invalid Admin/Officer ID or Password' });
 });
 
 // ── GET /api/admin-auth/verify ────────────────────────────────────────────────
@@ -72,7 +93,12 @@ router.get('/verify', (req, res) => {
         const token = authHeader.split(' ')[1];
         // jwt.verify() throws if token is invalid or expired
         const decoded = jwt.verify(token, JWT_SECRET);
-        res.json({ valid: true, role: decoded.role });
+        res.json({ 
+            valid: true, 
+            role: decoded.role,
+            ward_id: decoded.ward_id,
+            ward_name: decoded.ward_name
+        });
     } catch (err) {
         res.status(401).json({ valid: false, error: 'Invalid or expired token' });
     }

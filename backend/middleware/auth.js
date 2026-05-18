@@ -67,6 +67,17 @@ const authenticate = async (req, res, next) => {
       req.user = { id: 'admin', role: 'admin', admin_id: decoded.admin_id };
       req.isAdminJwt = true;
       return next();
+    } else if (decoded.role === 'officer') {
+      // Valid officer token — attach officer details and ward info
+      req.user = { 
+        id: decoded.admin_id, 
+        role: 'officer', 
+        admin_id: decoded.admin_id,
+        ward_id: decoded.ward_id,
+        ward_name: decoded.ward_name 
+      };
+      req.isAdminJwt = true;
+      return next();
     }
   } catch (_) {
     // jwt.verify() threw — this is not a valid admin JWT, fall through to Supabase

@@ -24,7 +24,25 @@ const redIcon = new L.Icon({
 });
 
 const AdminComplaints = () => {
-  const { user } = useAuth();
+  const { user: authUser, session } = useAuth();
+
+  // Try to decode standalone admin token if present
+  const adminToken = localStorage.getItem('citypulse_admin_token');
+  let decodedUser = null;
+  if (adminToken) {
+    try {
+      const base64Url = adminToken.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => 
+        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+      ).join(''));
+      decodedUser = JSON.parse(jsonPayload);
+    } catch (_) {}
+  }
+
+  const currentUser = decodedUser || authUser;
+  const role = currentUser?.role?.toLowerCase();
+
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('Pending');
@@ -34,7 +52,6 @@ const AdminComplaints = () => {
   const [selectedMapComplaint, setSelectedMapComplaint] = useState(null);
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [activeImgIdx, setActiveImgIdx] = useState(0);
-  const { session } = useAuth();
 
   useEffect(() => {
     if (session?.access_token) localStorage.setItem('access_token', session.access_token);
@@ -262,7 +279,7 @@ const AdminComplaints = () => {
                             >{actionLoading[c.id] === 'reject' ? '...' : '❌ Reject'}</button>
                           </>
                         )}
-                        {c.status === 'Approved' && (
+                        {c.status === 'Approved' && role === 'admin' && (
                           <button
                             className="btn btn-sm"
                             disabled={!!actionLoading[c.id]}
@@ -270,7 +287,7 @@ const AdminComplaints = () => {
                             style={{ flex: 1, justifyContent: 'center', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem' }}
                           >{actionLoading[c.id] === 'resolve' ? '...' : '🎉 Mark Resolved'}</button>
                         )}
-                        {user?.role === 'admin' && (
+                        {role === 'admin' && (
                           <button
                             className="btn btn-sm"
                             disabled={!!actionLoading[c.id]}
@@ -484,7 +501,7 @@ const AdminComplaints = () => {
                     <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', fontWeight: '900', color: '#0f172a', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       💬 Community Comments & Official Updates
                     </h3>
-                    <CommentThread complaintId={c.id} user={user} />
+                    <CommentThread complaintId={c.id} user={currentUser || user} />
                   </div>
 
                   {/* Actions */}
@@ -502,7 +519,7 @@ const AdminComplaints = () => {
                       >{actionLoading[c.id] === 'reject' ? 'Processing...' : '❌ Reject Report'}</button>
                     </div>
                   )}
-                  {c.status === 'Approved' && (
+                  {c.status === 'Approved' && role === 'admin' && (
                     <div style={{ display: 'flex', gap: '0.75rem' }}>
                       <button
                         disabled={!!actionLoading[c.id]}
@@ -513,7 +530,7 @@ const AdminComplaints = () => {
                   )}
 
                   {/* Permanent Delete for Admin */}
-                  {user?.role === 'admin' && (
+                  {role === 'admin' && (
                     <div style={{ marginTop: '1.5rem', borderTop: '1px dashed #e2e8f0', paddingTop: '1.25rem' }}>
                       <button
                         disabled={!!actionLoading[c.id]}

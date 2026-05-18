@@ -23,7 +23,19 @@
 const express = require('express');
 const supabase = require('../utils/supabase');
 const { requireAdmin, requireOfficerOrAdmin } = require('../middleware/auth');
+const { WARD_DEFINITIONS, isPointInPolygon } = require('./wards');
 const router = express.Router();
+
+// Helper to check if a complaint belongs to an officer's assigned ward
+function isComplaintInOfficerWard(officer, complaint) {
+  if (!officer || officer.role !== 'officer') return true; // Admins can manage all wards
+  if (!officer.ward_id) return false;
+  if (officer.ward_id === 'all') return true; // Global common officer
+  const ward = WARD_DEFINITIONS.find(w => w.id === officer.ward_id);
+  if (!ward) return false;
+  if (!complaint.latitude || !complaint.longitude) return false;
+  return isPointInPolygon(parseFloat(complaint.latitude), parseFloat(complaint.longitude), ward.coordinates);
+}
 
 // XP (and coin) amount awarded per complaint approval
 const XP_PER_APPROVAL = 50;
@@ -33,21 +45,34 @@ const XP_PER_APPROVAL = 50;
 // Officers and admins can use this to review the queue.
 router.get('/complaints', requireOfficerOrAdmin, async (req, res) => {
   const { status, type, page = 1, limit = 20 } = req.query;
-  const offset = (page - 1) * limit; // Calculate how many rows to skip (for pagination)
+  const offset = (page - 1) * limit; // Calculate how many rows to skip
+
+  const isOfficer = req.user && req.user.role === 'officer';
 
   let query = supabase
     .from('complaints')
     // Join users table to display who submitted each complaint
-    .select(`*, users (username, email, level, xp)`, { count: 'exact' })
-    .order('created_at', { ascending: false })
-    // range(start, end) implements pagination (inclusive, 0-indexed)
-    .range(offset, offset + limit - 1);
+    .select(`*, users (username, email, level, xp)`, { count: isOfficer ? undefined : 'exact' })
+    .order('created_at', { ascending: false });
 
   if (status) query = query.eq('status', status);
   if (type) query = query.eq('type', type);
 
+  // If admin, paginate in DB. If officer, fetch all so we can filter by ward in memory.
+  if (!isOfficer) {
+    query = query.range(offset, offset + limit - 1);
+  }
+
   const { data, error, count } = await query;
   if (error) return res.status(500).json({ error: error.message });
+
+  if (isOfficer) {
+    // Filter in memory for officer's ward
+    const filtered = (data || []).filter(c => isComplaintInOfficerWard(req.user, c));
+    const total = filtered.length;
+    const paginated = filtered.slice(offset, offset + parseInt(limit));
+    return res.json({ data: paginated, total, page: parseInt(page), limit: parseInt(limit) });
+  }
 
   // Return data + total count so the frontend can render pagination controls
   res.json({ data, total: count, page: parseInt(page), limit: parseInt(limit) });
@@ -72,6 +97,9 @@ router.patch('/complaints/:id/approve', requireOfficerOrAdmin, async (req, res) 
     .single();
 
   if (fetchErr || !complaint) return res.status(404).json({ error: 'Complaint not found' });
+  if (!isComplaintInOfficerWard(req.user, complaint)) {
+    return res.status(403).json({ error: 'Access denied: Complaint is outside your assigned ward' });
+  }
   if (complaint.status !== 'Pending') return res.status(400).json({ error: 'Complaint already processed' });
 
   // Step 2: Calculate resolution time (how long from submission to approval)
@@ -120,6 +148,18 @@ router.patch('/complaints/:id/reject', requireOfficerOrAdmin, async (req, res) =
   const { id } = req.params;
   const { reason } = req.body; // Optional rejection reason (future use)
 
+  // Verify complaint exists and belongs to the officer's ward
+  const { data: complaint, error: fetchErr } = await supabase
+    .from('complaints')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (fetchErr || !complaint) return res.status(404).json({ error: 'Complaint not found' });
+  if (!isComplaintInOfficerWard(req.user, complaint)) {
+    return res.status(403).json({ error: 'Access denied: Complaint is outside your assigned ward' });
+  }
+
   const { data, error } = await supabase
     .from('complaints')
     .update({ status: 'Rejected' })
@@ -135,6 +175,18 @@ router.patch('/complaints/:id/reject', requireOfficerOrAdmin, async (req, res) =
 // Marks an approved complaint as resolved once the municipality completes the cleanup.
 router.patch('/complaints/:id/resolve', requireOfficerOrAdmin, async (req, res) => {
   const { id } = req.params;
+
+  // Verify complaint exists and belongs to the officer's ward
+  const { data: complaint, error: fetchErr } = await supabase
+    .from('complaints')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (fetchErr || !complaint) return res.status(404).json({ error: 'Complaint not found' });
+  if (!isComplaintInOfficerWard(req.user, complaint)) {
+    return res.status(403).json({ error: 'Access denied: Complaint is outside your assigned ward' });
+  }
 
   const { data, error } = await supabase
     .from('complaints')

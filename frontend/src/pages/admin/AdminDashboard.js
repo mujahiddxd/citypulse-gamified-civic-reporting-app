@@ -1,18 +1,41 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AdminLayout from '../../components/admin/AdminLayout';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { session } = useAuth();
+  const { session, user: authUser } = useAuth();
 
   useEffect(() => {
+    // Try to decode standalone admin token to check role
+    const adminToken = localStorage.getItem('citypulse_admin_token');
+    let decodedUser = null;
+    if (adminToken) {
+      try {
+        const base64Url = adminToken.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => 
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+        decodedUser = JSON.parse(jsonPayload);
+      } catch (_) {}
+    }
+    const currentUser = decodedUser || authUser;
+    const role = currentUser?.role?.toLowerCase();
+
+    if (role === 'officer') {
+      navigate('/admin/complaints', { replace: true });
+      return;
+    }
+
     if (session?.access_token) localStorage.setItem('access_token', session.access_token);
     api.get('/analytics/overview').then(r => { setStats(r.data); setLoading(false); }).catch(() => setLoading(false));
-  }, [session?.access_token]);
+  }, [session?.access_token, authUser, navigate]);
 
   if (loading) return <AdminLayout title="Overview"><div>Loading...</div></AdminLayout>;
 

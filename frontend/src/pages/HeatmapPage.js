@@ -147,7 +147,7 @@ const HeatmapPage = () => {
   const [zoneWardStats, setZoneWardStats] = useState(null);
   const [zoneStatsLoading, setZoneStatsLoading] = useState(false);
   const [zoneExporting, setZoneExporting] = useState('');
-  
+
   // Dynamic Wards/Zones state loaded dynamically from backend with curated harmonious colors
   const [dummyWards, setDummyWards] = useState([]);
 
@@ -194,7 +194,7 @@ const HeatmapPage = () => {
       console.error(err);
     } finally {
       const elapsed = Date.now() - start;
-        
+
       setLoading(false);
       setInitialLoad(false);
     }
@@ -238,12 +238,12 @@ const HeatmapPage = () => {
     setZoneExporting('csv');
     try {
       const { data } = await api.get(`/wards/${selectedZoneWard.id}/report`);
-      const rows = [['ID','Type','Severity','Status','Area','Date']];
+      const rows = [['ID', 'Type', 'Severity', 'Status', 'Area', 'Date']];
       (data.stats.complaints || []).forEach(c => rows.push([
         c.id, c.type || '', c.severity || '', c.status || '', c.area_name || '',
         new Date(c.created_at).toLocaleDateString()
       ]));
-      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -272,22 +272,22 @@ const HeatmapPage = () => {
         ['Contact', data.ward.contact],
         [],
         ['COMPLAINT STATISTICS'],
-        ['Total','Pending','Resolved','In Progress','Approved'],
+        ['Total', 'Pending', 'Resolved', 'In Progress', 'Approved'],
         [data.stats.total, data.stats.pending, data.stats.resolved, data.stats.inProgress, data.stats.approved],
         [],
         ['SEVERITY BREAKDOWN'],
         ['High', 'Medium', 'Low'],
-        [(data.stats.severities||{}).High||0, (data.stats.severities||{}).Medium||0, (data.stats.severities||{}).Low||0],
+        [(data.stats.severities || {}).High || 0, (data.stats.severities || {}).Medium || 0, (data.stats.severities || {}).Low || 0],
         [],
         ['COMPLAINT DETAILS'],
-        ['Complaint ID','Type','Severity','Status','Area Name','Date'],
+        ['Complaint ID', 'Type', 'Severity', 'Status', 'Area Name', 'Date'],
         ...(data.stats.complaints || []).map(c => [
-          c.id, c.type||'', c.severity||'', c.status||'', c.area_name||'',
+          c.id, c.type || '', c.severity || '', c.status || '', c.area_name || '',
           new Date(c.created_at).toLocaleDateString()
         ])
       ];
       const ws = XLSX.utils.aoa_to_sheet(wsData);
-      ws['!cols'] = [{wch:38},{wch:15},{wch:12},{wch:15},{wch:35},{wch:14}];
+      ws['!cols'] = [{ wch: 38 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 35 }, { wch: 14 }];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Ward Report');
       XLSX.writeFile(wb, `${data.ward.name}_Report.xlsx`);
@@ -380,7 +380,7 @@ const HeatmapPage = () => {
       // Key Performance Indicators (KPI Grid)
       doc.setFontSize(11); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
       doc.text('2. Departmental Performance & Caseload Metrics', M, y); y += 6; doc.setFont(undefined, 'normal');
-      
+
       const kpiCards = [
         { l: 'TOTAL CASELOAD', v: s.total, c: [30, 64, 175], bg: [239, 246, 255], bc: [191, 219, 254] },
         { l: 'PENDING SCREENING', v: s.pending, c: [161, 98, 7], bg: [254, 243, 199], bc: [253, 230, 138] },
@@ -403,7 +403,7 @@ const HeatmapPage = () => {
       // Severity & Category Breakdown Table
       doc.setFontSize(11); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
       doc.text('3. Risk Severity & Issue Category Analysis', M, y); y += 6; doc.setFont(undefined, 'normal');
-      
+
       // Draw Table Header
       doc.setFillColor(241, 245, 249); doc.rect(M, y, W - 2 * M, 8, 'F');
       doc.setDrawColor(203, 213, 225); doc.rect(M, y, W - 2 * M, 8, 'S');
@@ -444,7 +444,7 @@ const HeatmapPage = () => {
       y = 32;
       doc.setFontSize(11); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
       doc.text('Master Register of Citizen Grievances', M, y); y += 6; doc.setFont(undefined, 'normal');
-      
+
       // Table Header
       doc.setFillColor(241, 245, 249); doc.rect(M, y, W - 2 * M, 8, 'F');
       doc.setDrawColor(203, 213, 225); doc.rect(M, y, W - 2 * M, 8, 'S');
@@ -473,11 +473,11 @@ const HeatmapPage = () => {
         doc.text(`CASE-${String(idx + 1).padStart(2, '0')}`, M + 2, y + 5);
         doc.text(String(c.type || 'Garbage'), M + 22, y + 5);
         doc.text(String(c.area_name || 'N/A').slice(0, 38), M + 52, y + 5);
-        
+
         // Severity pill
         doc.setFillColor(...sevColor(c.severity)); doc.roundedRect(M + 123, y + 1.5, 22, 5, 1, 1, 'F');
         doc.setTextColor(255, 255, 255); doc.setFont(undefined, 'bold'); doc.text(String(c.severity || 'Low').toUpperCase(), M + 134, y + 5, { align: 'center' });
-        
+
         // Status pill
         doc.setFillColor(...statusColor(c.status)); doc.roundedRect(M + 148, y + 1.5, 24, 5, 1, 1, 'F');
         doc.text(String(c.status || 'Pending').toUpperCase(), M + 160, y + 5, { align: 'center' });
@@ -526,7 +526,7 @@ const HeatmapPage = () => {
         // Section 1: Geographic & Location Metadata
         doc.setFontSize(10); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
         doc.text('1. Geographic & Location Metadata', M, y); y += 6; doc.setFont(undefined, 'normal');
-        
+
         doc.setFillColor(255, 255, 255); doc.roundedRect(M, y, W - 2 * M, 24, 2, 2, 'F');
         doc.setDrawColor(226, 232, 240); doc.roundedRect(M, y, W - 2 * M, 24, 2, 2, 'S');
         doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.setFont(undefined, 'bold');
@@ -554,7 +554,7 @@ const HeatmapPage = () => {
 
         doc.setFillColor(255, 255, 255); doc.roundedRect(M, y, W - 2 * M, boxH, 2, 2, 'F');
         doc.setDrawColor(226, 232, 240); doc.roundedRect(M, y, W - 2 * M, boxH, 2, 2, 'S');
-        
+
         doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.setFont(undefined, 'bold');
         doc.text('CITIZEN STATEMENT:', M + 4, y + 6); doc.setFont(undefined, 'normal'); doc.setTextColor(30, 41, 59);
         doc.text(dLines, M + 4, y + 11);
@@ -574,10 +574,10 @@ const HeatmapPage = () => {
 
         doc.setFillColor(255, 251, 235); doc.roundedRect(M, y, W - 2 * M, 65, 2, 2, 'F');
         doc.setDrawColor(245, 158, 11); doc.roundedRect(M, y, W - 2 * M, 65, 2, 2, 'S');
-        
+
         doc.setFontSize(8); doc.setTextColor(146, 64, 14); doc.setFont(undefined, 'bold');
         doc.text('MUNICIPAL REMEDIATION PROTOCOL', M + 4, y + 6); doc.setFont(undefined, 'normal'); doc.setTextColor(30, 41, 59);
-        
+
         const actY = y + 14;
         doc.setFontSize(8); doc.setTextColor(100, 116, 139);
         doc.text('Assigned Municipal Squad / Contractor:', M + 4, actY); doc.text('________________________________________________', M + 65, actY);
@@ -593,10 +593,10 @@ const HeatmapPage = () => {
 
         doc.setFillColor(240, 253, 244); doc.roundedRect(M, y, W - 2 * M, 22, 2, 2, 'F');
         doc.setDrawColor(34, 197, 94); doc.roundedRect(M, y, W - 2 * M, 22, 2, 2, 'S');
-        
+
         doc.setFontSize(8); doc.setTextColor(22, 101, 52); doc.setFont(undefined, 'bold');
         doc.text('WARD SUPERVISOR / ASSISTANT COMMISSIONER APPROVAL', M + 4, y + 6); doc.setFont(undefined, 'normal');
-        
+
         doc.setFontSize(8); doc.setTextColor(100, 116, 139);
         doc.text('Verified By (Name): _______________________   Designation: _______________________   Date: ___________', M + 4, y + 13);
         doc.text('Official Departmental Seal / Stamp: [                                     ]', M + 4, y + 19);
@@ -605,7 +605,7 @@ const HeatmapPage = () => {
       });
 
       doc.save(`${data.ward.name}_Executive_Audit_Report.pdf`);
-    } catch(e) { console.error('PDF export error:', e); alert('PDF export failed: ' + e.message); }
+    } catch (e) { console.error('PDF export error:', e); alert('PDF export failed: ' + e.message); }
     finally { setZoneExporting(''); }
   }, [selectedZoneWard]);
 
@@ -911,14 +911,14 @@ const HeatmapPage = () => {
                   <Marker key={groupIdx} position={[anchor.lat, anchor.lng]} icon={getIcon(p.severity)}>
                     <Popup className="custom-popup" style={{ minWidth: '320px' }}>
                       <div style={{ fontFamily: 'var(--font-display)', color: '#111', padding: '0.75rem' }}>
-                        
+
                         {hasMultiple && (
-                          <div style={{ 
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+                          <div style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                             marginBottom: '12px', background: '#0f172a', padding: '8px 12px', borderRadius: '10px',
                             border: '2px solid #FFDC2B', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                           }}>
-                            <button 
+                            <button
                               onClick={() => setPopupIndexes(prev => ({ ...prev, [groupIdx]: (currentIdx - 1 + group.length) % group.length }))}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: '#FFDC2B', padding: '4px' }}
                             >◀️</button>
@@ -928,7 +928,7 @@ const HeatmapPage = () => {
                                 {currentIdx + 1} OF {group.length}
                               </span>
                             </div>
-                            <button 
+                            <button
                               onClick={() => setPopupIndexes(prev => ({ ...prev, [groupIdx]: (currentIdx + 1) % group.length }))}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: '#FFDC2B', padding: '4px' }}
                             >▶️</button>
@@ -950,7 +950,7 @@ const HeatmapPage = () => {
                             {p.severity} Severity
                           </span>
                           <span style={{
-                            padding: '4px 10px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', 
+                            padding: '4px 10px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800',
                             background: p.status === 'Approved' || p.status === 'resolved' ? '#dcfce7' : p.status === 'in_progress' ? '#fef9c3' : '#f1f5f9',
                             color: p.status === 'Approved' || p.status === 'resolved' ? '#16a34a' : p.status === 'in_progress' ? '#854d0e' : '#475569',
                             border: `1px solid ${p.status === 'Approved' || p.status === 'resolved' ? '#16a34a' : p.status === 'in_progress' ? '#eab308' : '#e2e8f0'}`
@@ -969,7 +969,7 @@ const HeatmapPage = () => {
                           </div>
                         )}
 
-                        <button 
+                        <button
                           onClick={() => navigate(`/reports?id=${p.id}`)}
                           style={{
                             marginTop: '16px', width: '100%', padding: '10px', borderRadius: '10px',
@@ -1031,31 +1031,31 @@ const HeatmapPage = () => {
                       </Popup>
                     </Marker>
                   ))}
-                  
+
                   {/* Clickable Ward Polygons */}
                   {dummyWards.map(ward => {
                     const isSelected = selectedZoneWard?.id === ward.id;
                     return (
-                    <Polygon 
-                      key={ward.id}
-                      positions={ward.coordinates} 
-                      pathOptions={{ 
-                        color: isSelected ? '#111' : ward.color, 
-                        fillColor: ward.color, 
-                        fillOpacity: isSelected ? 0.45 : 0.2,
-                        weight: isSelected ? 4 : 2,
-                        dashArray: isSelected ? '' : '5, 5'
-                      }}
-                      eventHandlers={{ click: () => handleZoneWardClick(ward) }}
-                    >
-                      <Popup>
-                        <div style={{ padding: '0.5rem', fontFamily: 'var(--font-display)' }}>
-                          <h4 style={{ margin: '0 0 0.5rem', color: ward.color }}>{ward.name.toLowerCase().includes('ward') ? ward.name : `${ward.name} Ward`}</h4>
-                          <p style={{ margin: 0 }}><strong>OFFICER:</strong><br/>{ward.officer}</p>
-                          <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#64748b' }}>Click ward for details & reports →</p>
-                        </div>
-                      </Popup>
-                    </Polygon>
+                      <Polygon
+                        key={ward.id}
+                        positions={ward.coordinates}
+                        pathOptions={{
+                          color: isSelected ? '#111' : ward.color,
+                          fillColor: ward.color,
+                          fillOpacity: isSelected ? 0.45 : 0.2,
+                          weight: isSelected ? 4 : 2,
+                          dashArray: isSelected ? '' : '5, 5'
+                        }}
+                        eventHandlers={{ click: () => handleZoneWardClick(ward) }}
+                      >
+                        <Popup>
+                          <div style={{ padding: '0.5rem', fontFamily: 'var(--font-display)' }}>
+                            <h4 style={{ margin: '0 0 0.5rem', color: ward.color }}>{ward.name.toLowerCase().includes('ward') ? ward.name : `${ward.name} Ward`}</h4>
+                            <p style={{ margin: 0 }}><strong>OFFICER:</strong><br />{ward.officer}</p>
+                            <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#64748b' }}>Click ward for details & reports →</p>
+                          </div>
+                        </Popup>
+                      </Polygon>
                     );
                   })}
                 </>
@@ -1100,9 +1100,9 @@ const HeatmapPage = () => {
                   {/* Stat Cards */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
                     {[{ l: 'Total', v: zoneWardStats.stats?.total, c: '#3b82f6', bg: '#eff6ff' },
-                      { l: 'Pending', v: zoneWardStats.stats?.pending, c: '#f59e0b', bg: '#fffbeb' },
-                      { l: 'Resolved', v: zoneWardStats.stats?.resolved, c: '#22c55e', bg: '#f0fdf4' },
-                      { l: 'In Progress', v: zoneWardStats.stats?.inProgress, c: '#8b5cf6', bg: '#f5f3ff' },
+                    { l: 'Pending', v: zoneWardStats.stats?.pending, c: '#f59e0b', bg: '#fffbeb' },
+                    { l: 'Resolved', v: zoneWardStats.stats?.resolved, c: '#22c55e', bg: '#f0fdf4' },
+                    { l: 'In Progress', v: zoneWardStats.stats?.inProgress, c: '#8b5cf6', bg: '#f5f3ff' },
                     ].map(s => (
                       <div key={s.l} style={{ background: s.bg, borderRadius: 10, padding: '12px 10px', border: `1px solid ${s.c}22`, textAlign: 'center' }}>
                         <div style={{ fontSize: '1.6rem', fontWeight: 900, fontFamily: 'var(--font-display)', color: s.c }}>{s.v || 0}</div>
@@ -1124,36 +1124,40 @@ const HeatmapPage = () => {
                   )}
 
                   {/* Severity Pie */}
-                  {(() => { const pd = Object.entries(zoneWardStats.stats?.severities || {}).map(([n,v]) => ({name:n,value:v})).filter(d=>d.value>0); return pd.length > 0 ? (
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', marginBottom: 6 }}>Severity</div>
-                      <div style={{ background: '#fff', borderRadius: 10, padding: 8, border: '1px solid #e2e8f0' }}>
-                        <ResponsiveContainer width="100%" height={150}>
-                          <PieChart><Pie data={pd} cx="50%" cy="50%" innerRadius={35} outerRadius={58} paddingAngle={3} dataKey="value" label={({name,value})=>`${name}:${value}`}>
-                            {pd.map((_,i) => <Cell key={i} fill={['#ef4444','#f59e0b','#22c55e'][i%3]} />)}
-                          </Pie></PieChart>
-                        </ResponsiveContainer>
+                  {(() => {
+                    const pd = Object.entries(zoneWardStats.stats?.severities || {}).map(([n, v]) => ({ name: n, value: v })).filter(d => d.value > 0); return pd.length > 0 ? (
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', marginBottom: 6 }}>Severity</div>
+                        <div style={{ background: '#fff', borderRadius: 10, padding: 8, border: '1px solid #e2e8f0' }}>
+                          <ResponsiveContainer width="100%" height={150}>
+                            <PieChart><Pie data={pd} cx="50%" cy="50%" innerRadius={35} outerRadius={58} paddingAngle={3} dataKey="value" label={({ name, value }) => `${name}:${value}`}>
+                              {pd.map((_, i) => <Cell key={i} fill={['#ef4444', '#f59e0b', '#22c55e'][i % 3]} />)}
+                            </Pie></PieChart>
+                          </ResponsiveContainer>
+                        </div>
                       </div>
-                    </div>
-                  ) : null; })()}
+                    ) : null;
+                  })()}
 
                   {/* Monthly Trend */}
-                  {(() => { const bd = Object.entries(zoneWardStats.stats?.monthlyTrend || {}).map(([m,d]) => ({month:m.slice(5),total:d.total,resolved:d.resolved})); return bd.length > 0 ? (
-                    <div style={{ marginBottom: 14 }}>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', marginBottom: 6 }}>Monthly Trend</div>
-                      <div style={{ background: '#fff', borderRadius: 10, padding: 8, border: '1px solid #e2e8f0' }}>
-                        <ResponsiveContainer width="100%" height={130}>
-                          <BarChart data={bd}>
-                            <XAxis dataKey="month" tick={{ fontSize: 9 }} />
-                            <YAxis tick={{ fontSize: 9 }} allowDecimals={false} />
-                            <Tooltip contentStyle={{ fontSize: '0.75rem', borderRadius: 6 }} />
-                            <Bar dataKey="total" fill="#3b82f6" radius={[3,3,0,0]} name="Total" />
-                            <Bar dataKey="resolved" fill="#22c55e" radius={[3,3,0,0]} name="Resolved" />
-                          </BarChart>
-                        </ResponsiveContainer>
+                  {(() => {
+                    const bd = Object.entries(zoneWardStats.stats?.monthlyTrend || {}).map(([m, d]) => ({ month: m.slice(5), total: d.total, resolved: d.resolved })); return bd.length > 0 ? (
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', marginBottom: 6 }}>Monthly Trend</div>
+                        <div style={{ background: '#fff', borderRadius: 10, padding: 8, border: '1px solid #e2e8f0' }}>
+                          <ResponsiveContainer width="100%" height={130}>
+                            <BarChart data={bd}>
+                              <XAxis dataKey="month" tick={{ fontSize: 9 }} />
+                              <YAxis tick={{ fontSize: 9 }} allowDecimals={false} />
+                              <Tooltip contentStyle={{ fontSize: '0.75rem', borderRadius: 6 }} />
+                              <Bar dataKey="total" fill="#3b82f6" radius={[3, 3, 0, 0]} name="Total" />
+                              <Bar dataKey="resolved" fill="#22c55e" radius={[3, 3, 0, 0]} name="Resolved" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
                       </div>
-                    </div>
-                  ) : null; })()}
+                    ) : null;
+                  })()}
 
                   {/* === REPORT DOWNLOAD BUTTONS === */}
                   <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#C62828', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>📋 Download Report</div>

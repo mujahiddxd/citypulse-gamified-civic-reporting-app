@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 const ADMIN_LINKS = [
   { path: '/admin', label: 'Overview', icon: '📊', exact: true },
   { path: '/admin/complaints', label: 'Complaints', icon: '📋' },
+  { path: '/wards', label: 'Ward Map', icon: '🗺️' },
   { path: '/admin/analytics', label: 'Analytics', icon: '📈' },
   { path: '/admin/users', label: 'Users', icon: '👥' },
   { path: '/admin/feedback', label: 'Feedback', icon: '📝' },
@@ -63,12 +64,28 @@ const AdminLayout = ({ children, title }) => {
     };
   }, [navigate]);
 
-  const { user } = useAuth();
+  const { user: authUser } = useAuth();
+
+  // Try to decode standalone admin token if present
+  const adminToken = localStorage.getItem('citypulse_admin_token');
+  let decodedUser = null;
+  if (adminToken) {
+    try {
+      const base64Url = adminToken.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => 
+        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+      ).join(''));
+      decodedUser = JSON.parse(jsonPayload);
+    } catch (_) {}
+  }
+
+  const currentUser = decodedUser || authUser;
+  const role = currentUser?.role?.toLowerCase();
 
   const filteredLinks = ADMIN_LINKS.filter(link => {
-    const role = user?.role?.toLowerCase();
     if (role === 'officer') {
-      return ['Complaints'].includes(link.label);
+      return ['Complaints', 'Ward Map'].includes(link.label);
     }
     return true; // Admins see everything
   });
@@ -111,14 +128,14 @@ const AdminLayout = ({ children, title }) => {
             width: '36px', height: '36px', borderRadius: '10px',
             background: '#C62828', display: 'flex', alignItems: 'center',
             justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0,
-          }}>{user?.role?.toLowerCase() === 'admin' ? '🛡️' : '👨‍✈️'}</div>
+          }}>{role === 'admin' ? '🛡️' : '👨‍✈️'}</div>
           {sidebarOpen && (
             <div>
               <div style={{ fontFamily: 'var(--font-display)', fontWeight: '900', color: '#fff', fontSize: '1rem', lineHeight: 1 }}>
                 City<span style={{ color: '#FFDC2B' }}>Pulse</span>
               </div>
               <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.65rem', letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: '2px' }}>
-                {user?.role?.toLowerCase() === 'admin' ? 'Admin Portal' : 'Officer Hub'}
+                {role === 'admin' ? 'Admin Portal' : 'Officer Hub'}
               </div>
             </div>
           )}
@@ -202,11 +219,14 @@ const AdminLayout = ({ children, title }) => {
           )}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{
-              background: '#fef2f2', border: '1px solid #fecaca',
+              background: role === 'admin' ? '#fef2f2' : '#f0fdf4',
+              border: role === 'admin' ? '1px solid #fecaca' : '1px solid #bbf7d0',
               borderRadius: '999px', padding: '0.3rem 0.85rem',
               fontFamily: 'var(--font-display)', fontSize: '0.72rem',
-              fontWeight: '800', color: '#C62828', letterSpacing: '0.1em',
-            }}>🛡️ ADMIN SESSION</div>
+              fontWeight: '800', color: role === 'admin' ? '#C62828' : '#15803d', letterSpacing: '0.1em',
+            }}>
+              {role === 'admin' ? '🛡️ ADMIN SESSION' : `👨‍✈️ OFFICER: ${currentUser?.ward_name || 'Ward Officer'}`}
+            </div>
             <Link to="/" style={{
               color: '#64748b', fontSize: '0.8rem', fontWeight: '600',
               textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px',

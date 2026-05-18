@@ -25,6 +25,24 @@ const Dashboard = () => {
   const [dailyReward, setDailyReward] = useState(null);
   const [showRewardModal, setShowRewardModal] = useState(false);
 
+  // Try to decode standalone admin token if present
+  const adminToken = localStorage.getItem('citypulse_admin_token');
+  let decodedUser = null;
+  if (adminToken) {
+    try {
+      const base64Url = adminToken.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => 
+        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+      ).join(''));
+      decodedUser = JSON.parse(jsonPayload);
+    } catch (_) {}
+  }
+
+  const currentUser = decodedUser || user;
+  const role = currentUser?.role?.toLowerCase();
+  const isOfficial = role === 'admin' || role === 'officer';
+
   useEffect(() => {
     if (!session?.access_token) return;
     localStorage.setItem('access_token', session.access_token);
@@ -241,41 +259,43 @@ const Dashboard = () => {
       </div>
 
       {/* Ward & Officer Section */}
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <div className="section-header">
-          <h2 className="section-title" style={{ fontSize: '1.1rem' }}>🏢 Local Wards & Officers</h2>
-          <Link to="/wards" style={{ fontSize: '0.8rem', color: 'var(--red-400)' }}>View Map</Link>
+      {isOfficial && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <div className="section-header">
+            <h2 className="section-title" style={{ fontSize: '1.1rem' }}>🏢 Local Wards & Officers</h2>
+            <Link to="/wards" style={{ fontSize: '0.8rem', color: 'var(--red-400)' }}>View Map</Link>
+          </div>
+          <div className="grid grid-2" style={{ gap: '1rem' }}>
+            {[
+              { name: "Thane Mumbra", officer: "Rajesh Kumar", contact: "+91 98765 43210", color: "#FF5722" },
+              { name: "Mumbai Kurla", officer: "Sneha Patil", contact: "+91 91234 56789", color: "#2196F3" }
+            ].map((ward, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.1 }}
+                style={{
+                  padding: '1rem',
+                  background: '#f8fafc',
+                  borderRadius: '12px',
+                  borderLeft: `4px solid ${ward.color}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1rem'
+                }}
+              >
+                <div style={{ fontSize: '1.5rem' }}>👨‍💼</div>
+                <div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '900', color: '#1e293b' }}>{ward.name}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}><span style={{ fontWeight: '700' }}>WHO IS IN CHARGE?</span> {ward.officer}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{ward.contact}</div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-2" style={{ gap: '1rem' }}>
-          {[
-            { name: "Thane Mumbra", officer: "Rajesh Kumar", contact: "+91 98765 43210", color: "#FF5722" },
-            { name: "Mumbai Kurla", officer: "Sneha Patil", contact: "+91 91234 56789", color: "#2196F3" }
-          ].map((ward, i) => (
-            <motion.div 
-              key={i}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.1 }}
-              style={{
-                padding: '1rem',
-                background: '#f8fafc',
-                borderRadius: '12px',
-                borderLeft: `4px solid ${ward.color}`,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem'
-              }}
-            >
-              <div style={{ fontSize: '1.5rem' }}>👨‍💼</div>
-              <div>
-                <div style={{ fontSize: '0.9rem', fontWeight: '900', color: '#1e293b' }}>{ward.name}</div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b' }}><span style={{ fontWeight: '700' }}>WHO IS IN CHARGE?</span> {ward.officer}</div>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{ward.contact}</div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* Recent Complaints */}
       <div className="card">

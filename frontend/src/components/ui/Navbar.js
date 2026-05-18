@@ -36,7 +36,6 @@ const Navbar = () => {
       textColor: "#ffffff",
       links: [
         { label: "📍 Heatmap", path: "/heatmap" },
-        { label: "🏢 Wards", path: "/wards" },
         { label: "🏆 Leaderboard", path: "/leaderboard" },
         { label: "📰 Public Feed", path: "/reports" }
       ]
