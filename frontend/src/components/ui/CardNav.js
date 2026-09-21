@@ -1,20 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import RotatingText from './RotatingText';
+import './CardNav.css';
 
 const CardNav = ({
   logo,
-  items,
-  baseColor = "#fff",
-  menuColor = "#000",
-  buttonBgColor = "#111",
-  buttonTextColor = "#fff",
+  items = [],
+  baseColor = "#ffffff",
+  menuColor = "#111111",
+  buttonBgColor = "#ffffff",
+  buttonTextColor = "#111111",
   theme = "light",
   user,
   onLogout,
   onProfileMenuToggle,
-  showProfileMenu
+  showProfileMenu,
+  setShowProfileMenu
 }) => {
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -22,28 +24,22 @@ const CardNav = ({
 
   const isActive = (path) => location.pathname.startsWith(path) && path !== '/';
 
+  // Close mobile menu and profile dropdown whenever route changes
+  useEffect(() => {
+    setMobileOpen(false);
+    if (setShowProfileMenu) setShowProfileMenu(false);
+  }, [location.pathname]);
+
   return (
-    <div style={{ position: 'sticky', top: 0, zIndex: 99999, padding: '0.75rem 1rem' }}>
-      <nav style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: '0.5rem 1.5rem',
-        borderRadius: '9999px',
-        background: 'var(--primary-blue)',
-        border: '3px solid #111',
-        boxShadow: '6px 6px 0px #111',
-        position: 'relative'
-      }}>
+    <div className="cardnav-wrapper">
+      <nav className="cardnav-nav">
         {/* Logo Section */}
-        <div style={{ display: 'flex', alignItems: 'center', zIndex: 10 }}>
+        <div className="cardnav-logo-area">
           {logo}
         </div>
 
-        {/* Desktop Links (CardNav Implementation) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', position: 'relative' }}>
+        {/* Desktop Links (Visible on screens >= 920px) */}
+        <div className="cardnav-desktop-links">
           {items.map((item, index) => (
             <div
               key={index}
@@ -51,12 +47,7 @@ const CardNav = ({
               onMouseLeave={() => setHoveredIndex(null)}
               style={{ position: 'relative' }}
             >
-              <button style={{
-                background: 'transparent', border: 'none',
-                color: '#fff', fontFamily: 'var(--font-display)',
-                fontSize: '1rem', fontWeight: '800', cursor: 'pointer',
-                padding: '0.5rem 1rem', textTransform: 'uppercase'
-              }}>
+              <button className="cardnav-link-btn" aria-expanded={hoveredIndex === index}>
                 <RotatingText 
                   key={hoveredIndex === index ? 'hover' : 'idle'}
                   texts={[item.label]} 
@@ -76,57 +67,28 @@ const CardNav = ({
               <AnimatePresence>
                 {hoveredIndex === index && (
                   <motion.div
-                    initial={{ opacity: 0, y: 15, x: "-50%", scale: 0.95 }}
+                    initial={{ opacity: 0, y: 12, x: "-50%", scale: 0.96 }}
                     animate={{ opacity: 1, y: 0, x: "-50%", scale: 1 }}
-                    exit={{ opacity: 0, y: 10, x: "-50%", scale: 0.95 }}
-                    transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                    style={{
-                      position: 'absolute',
-                      top: '120%',
-                      left: '50%',
-                      background: item.bgColor || menuColor,
-                      padding: '1rem',
-                      borderRadius: '16px',
-                      border: '2px solid #111',
-                      boxShadow: '4px 4px 0px #111',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.5rem',
-                      minWidth: '180px',
-                      zIndex: 100
-                    }}
+                    exit={{ opacity: 0, y: 8, x: "-50%", scale: 0.96 }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 320 }}
+                    className="cardnav-hover-menu"
+                    style={{ background: item.bgColor || menuColor }}
                   >
-                    {/* Little arrow pointing up */}
-                    <div style={{
-                      position: 'absolute', top: '-6px', left: '50%',
-                      transform: 'translateX(-50%) rotate(45deg)',
-                      width: '12px', height: '12px',
-                      background: item.bgColor || menuColor,
-                      borderLeft: '2px solid #111',
-                      borderTop: '2px solid #111',
-                      zIndex: -1
-                    }} />
+                    {/* Arrow pointer */}
+                    <div 
+                      className="cardnav-hover-arrow"
+                      style={{ background: item.bgColor || menuColor }} 
+                    />
 
                     {item.links.map((link, i) => (
                       <Link
                         key={i}
                         to={link.path}
+                        className="cardnav-sublink"
                         style={{
-                          color: item.textColor || '#fff',
-                          textDecoration: 'none',
-                          fontFamily: 'var(--font-body)',
-                          fontSize: '0.95rem',
-                          fontWeight: '700',
-                          padding: '0.5rem 0.75rem',
-                          borderRadius: '8px',
-                          transition: 'background 0.2s',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem',
-                          background: isActive(link.path) ? 'rgba(255,255,255,0.15)' : 'transparent'
+                          color: item.textColor || '#ffffff',
+                          background: isActive(link.path) ? 'rgba(255,255,255,0.18)' : 'transparent'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = isActive(link.path) ? 'rgba(255,255,255,0.15)' : 'transparent'}
                       >
                         {link.label}
                       </Link>
@@ -138,98 +100,209 @@ const CardNav = ({
           ))}
         </div>
 
-        {/* Right Side - Auth / Profile */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        {/* Right Side - Auth, Profile & Mobile Hamburger */}
+        <div className="cardnav-right-area">
           {user ? (
-             <div style={{ position: 'relative' }}>
-               <div
-                 onClick={onProfileMenuToggle}
-                 style={{
-                   display: 'flex', alignItems: 'center', gap: '0.75rem',
-                   cursor: 'pointer', padding: '0.3rem 0.6rem',
-                   borderRadius: '9999px', background: buttonBgColor,
-                   border: '2px solid #111111',
-                   boxShadow: '2px 2px 0px #111111'
-                 }}
-               >
-                 <div style={{
-                   width: '32px', height: '32px', borderRadius: '50%',
-                   background: 'var(--accent)', display: 'flex', alignItems: 'center',
-                   justifyContent: 'center', fontWeight: '900', color: '#111',
-                   fontSize: '0.9rem', border: '2px solid #111'
-                 }}>
-                   {user.username?.[0]?.toUpperCase() || 'U'}
-                 </div>
-                 <span style={{ fontSize: '0.9rem', fontWeight: '800', color: buttonTextColor, paddingRight: '0.5rem' }}>
-                   {user.coins?.toLocaleString()} 🪙
-                 </span>
-               </div>
+            <div style={{ position: 'relative' }}>
+              <div
+                onClick={onProfileMenuToggle}
+                className="cardnav-user-pill"
+                role="button"
+                tabIndex={0}
+                aria-label="User profile and coins"
+              >
+                <div className="cardnav-avatar-bubble">
+                  {user.username?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <span className="cardnav-coins-text">
+                  {user.coins?.toLocaleString() || 0} 🪙
+                </span>
+              </div>
 
-               {/* Profile Menu Dropdown */}
-               <AnimatePresence>
-                 {showProfileMenu && (
-                   <motion.div
-                     initial={{ opacity: 0, y: 15, scale: 0.95 }}
-                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                     style={{
-                       position: 'absolute', top: '120%', right: '0',
-                       width: '220px', display: 'flex', flexDirection: 'column',
-                       background: 'var(--bg-elevated)',
-                       backdropFilter: 'var(--glass-blur)',
-                       border: '2px solid #111',
-                       borderRadius: '16px', padding: '0.5rem',
-                       boxShadow: '4px 4px 0px #111', zIndex: 1100
-                     }}
-                   >
-                     {/* Little arrow pointing up */}
-                     <div style={{
-                       position: 'absolute', top: '-6px', right: '30px',
-                       width: '12px', height: '12px',
-                       background: 'var(--bg-elevated)',
-                       borderLeft: '2px solid #111',
-                       borderTop: '2px solid #111',
-                       transform: 'rotate(45deg)',
-                       zIndex: -1
-                     }} />
+              {/* Profile Menu Dropdown (Desktop) */}
+              <AnimatePresence>
+                {showProfileMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    className="cardnav-profile-dropdown"
+                  >
+                    <div className="cardnav-profile-dropdown-arrow" />
 
-                     <Link to={user.username ? `/profile/${user.username}` : "/dashboard"} onClick={onProfileMenuToggle} className="btn-ghost" 
-                       style={{ textDecoration: 'none', color: 'var(--text-primary)', width: '100%', display: 'flex', alignItems: 'center', padding: '0.75rem', gap: '0.5rem', fontWeight: 'bold', borderRadius: '8px', transition: 'background 0.2s' }}
-                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(128, 128, 128, 0.15)'}
-                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                     >
-                       <span>👤</span> <span>View Profile</span>
-                     </Link>
-                     
-                     <Link to={(user.role === 'admin' || user.role === 'officer') ? "/admin" : "/dashboard"} onClick={onProfileMenuToggle} className="btn-ghost" 
-                       style={{ textDecoration: 'none', color: 'var(--text-primary)', width: '100%', display: 'flex', alignItems: 'center', padding: '0.75rem', gap: '0.5rem', fontWeight: 'bold', borderRadius: '8px', transition: 'background 0.2s' }}
-                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(128, 128, 128, 0.15)'}
-                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                     >
-                       <span>📊</span> <span>{(user.role === 'admin' || user.role === 'officer') ? "Admin Panel" : "Dashboard"}</span>
-                     </Link>
-                     
-                     <div style={{ height: '2px', background: '#111', margin: '0.5rem 0' }} />
-                     
-                     <button onClick={onLogout} className="btn-ghost" 
-                       style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', fontSize: '1rem', width: '100%', display: 'flex', alignItems: 'center', color: 'var(--danger)', padding: '0.75rem', gap: '0.5rem', fontWeight: 'bold', borderRadius: '8px', transition: 'background 0.2s' }}
-                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(220, 38, 38, 0.1)'}
-                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                     >
-                       <span>🚪</span> <span>Logout</span>
-                     </button>
-                   </motion.div>
-                 )}
-               </AnimatePresence>
-             </div>
+                    <Link 
+                      to={user.username ? `/profile/${user.username}` : "/dashboard"} 
+                      onClick={onProfileMenuToggle} 
+                      className="cardnav-menu-item"
+                    >
+                      <span aria-hidden="true">👤</span>
+                      <span>View Profile</span>
+                    </Link>
+                    
+                    <Link 
+                      to={(user.role === 'admin' || user.role === 'officer') ? "/admin" : "/dashboard"} 
+                      onClick={onProfileMenuToggle} 
+                      className="cardnav-menu-item"
+                    >
+                      <span aria-hidden="true">📊</span>
+                      <span>{(user.role === 'admin' || user.role === 'officer') ? "Admin Panel" : "Dashboard"}</span>
+                    </Link>
+                    
+                    <div className="cardnav-menu-divider" />
+                    
+                    <button 
+                      onClick={onLogout} 
+                      className="cardnav-menu-item danger"
+                    >
+                      <span aria-hidden="true">🚪</span>
+                      <span>Logout</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           ) : (
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <Link to="/login" style={{ color: '#ffffff', fontWeight: '800', padding: '0 1rem', textDecoration: 'none', fontFamily: 'var(--font-display)' }}>Login</Link>
-              <Link to="/register" style={{ background: buttonBgColor, color: buttonTextColor, padding: '0.5rem 1.25rem', borderRadius: '9999px', border: '2px solid #111', fontWeight: '800', fontFamily: 'var(--font-display)', textDecoration: 'none', boxShadow: '2px 2px 0px #111' }}>Sign up</Link>
+            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+              <Link 
+                to="/login" 
+                style={{ 
+                  color: '#ffffff', 
+                  fontWeight: '800', 
+                  padding: '0.35rem 0.75rem', 
+                  textDecoration: 'none', 
+                  fontFamily: 'var(--font-display, inherit)',
+                  fontSize: '0.9rem'
+                }}
+              >
+                Login
+              </Link>
+              <Link 
+                to="/register" 
+                style={{ 
+                  background: buttonBgColor, 
+                  color: buttonTextColor, 
+                  padding: '0.4rem 1rem', 
+                  borderRadius: '9999px', 
+                  border: '2px solid #111111', 
+                  fontWeight: '800', 
+                  fontFamily: 'var(--font-display, inherit)', 
+                  textDecoration: 'none', 
+                  boxShadow: '2px 2px 0px #111111',
+                  fontSize: '0.85rem'
+                }}
+              >
+                Sign up
+              </Link>
             </div>
           )}
+
+          {/* Mobile Hamburger Toggle Button */}
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="cardnav-hamburger-btn"
+            aria-label={mobileOpen ? "Close menu" : "Open navigation menu"}
+            aria-expanded={mobileOpen}
+          >
+            {mobileOpen ? '✕' : '☰'}
+          </button>
         </div>
+
+        {/* ── Mobile Navigation Drawer ── */}
+        <AnimatePresence>
+          {mobileOpen && (
+            <>
+              {/* Semi-transparent backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileOpen(false)}
+                className="cardnav-mobile-overlay"
+              />
+
+              {/* Drawer Container */}
+              <motion.div
+                initial={{ opacity: 0, y: -15, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                transition={{ type: "spring", damping: 25, stiffness: 350 }}
+                className="cardnav-mobile-drawer"
+              >
+                {/* Categorized Sections */}
+                {items.map((cat, idx) => (
+                  <div key={idx} className="cardnav-mobile-section">
+                    <span className="cardnav-mobile-section-title">{cat.label}</span>
+                    <div className="cardnav-mobile-grid">
+                      {cat.links.map((lnk, linkIdx) => (
+                        <Link
+                          key={linkIdx}
+                          to={lnk.path}
+                          onClick={() => setMobileOpen(false)}
+                          className={`cardnav-mobile-link ${isActive(lnk.path) ? 'active' : ''}`}
+                        >
+                          <span>{lnk.label}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Mobile User Actions Footer */}
+                {user ? (
+                  <div className="cardnav-mobile-user-bar">
+                    <div className="cardnav-mobile-user-info">
+                      <div className="cardnav-avatar-bubble" style={{ width: '26px', height: '26px', fontSize: '0.75rem' }}>
+                        {user.username?.[0]?.toUpperCase() || 'U'}
+                      </div>
+                      <span className="cardnav-mobile-username">
+                        @{user.username || 'Citizen'}
+                      </span>
+                    </div>
+
+                    <div className="cardnav-mobile-btn-group">
+                      <Link
+                        to={user.username ? `/profile/${user.username}` : "/dashboard"}
+                        onClick={() => setMobileOpen(false)}
+                        className="cardnav-mobile-action-btn"
+                      >
+                        Profile
+                      </Link>
+                      <button
+                        onClick={() => {
+                          setMobileOpen(false);
+                          onLogout();
+                        }}
+                        className="cardnav-mobile-action-btn logout"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <Link
+                      to="/login"
+                      onClick={() => setMobileOpen(false)}
+                      className="cardnav-mobile-action-btn"
+                      style={{ flex: 1, textAlign: 'center', padding: '0.55rem' }}
+                    >
+                      Login
+                    </Link>
+                    <Link
+                      to="/register"
+                      onClick={() => setMobileOpen(false)}
+                      className="cardnav-mobile-action-btn"
+                      style={{ flex: 1, textAlign: 'center', padding: '0.55rem', background: '#58cc02', color: '#ffffff', borderColor: '#111111' }}
+                    >
+                      Sign Up
+                    </Link>
+                  </div>
+                )}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </nav>
     </div>
   );

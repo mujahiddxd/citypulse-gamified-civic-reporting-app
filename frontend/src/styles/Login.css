@@ -4,10 +4,7 @@
     align-items: center;
     justify-content: center;
     padding: 2rem;
-    background-image: url('../assets/anime_bg.png');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
+    background: radial-gradient(circle at 50% 0%, #dcfce7 0%, #f0fdf4 50%, #eaf8f0 100%);
 }
 
 .login-card {

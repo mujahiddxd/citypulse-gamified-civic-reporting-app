@@ -5,8 +5,8 @@
    ============================================ */
 :root {
   /* Canvas Backgrounds */
-  --bg-app: #D0EFFF;
-  /* The light blue sky background */
+  --bg-app: #f0fdf4;
+  /* Minimal Eco Green ambient background */
   --bg: #ffffff;
   /* White content canvas */
   --bg-card: #ffffff;
@@ -545,7 +545,7 @@ html {
 
 body {
   font-family: var(--font-body);
-  background: url('./assets/anime_global_bg.png') no-repeat center center fixed;
+  background: radial-gradient(circle at 50% 0%, #dcfce7 0%, #f0fdf4 45%, #eaf8f0 100%) no-repeat fixed;
   background-size: cover;
   color: var(--text-primary);
   min-height: 100vh;

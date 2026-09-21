@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import confetti from 'canvas-confetti';
+import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import '../styles/Rewards.css';
 
-import ProfileCard from '../components/ui/ProfileCard';
-
-// ── Configuration ────────────────────────────────────────────────────────────
-
+// ── Item Definitions & 30-Day Calendar Catalog ──────────────────────────────
 const RARITY = {
-    COMMON: { color: '#8e8e8e', bg: 'linear-gradient(180deg, #d3d3d3, #a9a9a9)', glow: 'rgba(142, 142, 142, 0.2)' },
-    RARE: { color: '#4b96ff', bg: 'linear-gradient(180deg, #7fb5ff, #4b96ff)', glow: 'rgba(75, 150, 255, 0.3)' },
-    EPIC: { color: '#a35dff', bg: 'linear-gradient(180deg, #c08cff, #a35dff)', glow: 'rgba(163, 93, 255, 0.3)' },
-    LEGENDARY: { color: '#ffb13b', bg: 'linear-gradient(180deg, #ffd18c, #ffb13b)', glow: 'rgba(255, 177, 59, 0.4)' },
+    COMMON: { bg: 'linear-gradient(135deg, #f1f5f9, #e2e8f0)', border: '#cbd5e1' },
+    RARE: { bg: 'linear-gradient(135deg, #e0f2fe, #bae6fd)', border: '#38bdf8' },
+    EPIC: { bg: 'linear-gradient(135deg, #f3e8ff, #e9d5ff)', border: '#c084fc' },
+    LEGENDARY: { bg: 'linear-gradient(135deg, #fef3c7, #fde68a)', border: '#f59e0b' },
 };
 
 // Generate 30 days of rewards
@@ -25,6 +24,65 @@ const MONTHLY_REWARDS = Array.from({ length: 30 }, (_, i) => {
     return { day, name: 'Eco Shard', qty: 75, icon: '💎', rarity: 'COMMON' };
 });
 
+// ── Web Audio Chime ─────────────────────────────────────────────────────────
+const playClaimChime = () => {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, index) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, ctx.currentTime + index * 0.08);
+            gain.gain.setValueAtTime(0.14, ctx.currentTime + index * 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + index * 0.08 + 0.35);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(ctx.currentTime + index * 0.08);
+            osc.stop(ctx.currentTime + index * 0.08 + 0.35);
+        });
+    } catch (e) {
+        // Audio policy protection
+    }
+};
+
+// ── Confetti Burst ───────────────────────────────────────────────────────────
+const triggerClaimConfetti = () => {
+    try {
+        confetti({
+            particleCount: 75,
+            spread: 90,
+            origin: { y: 0.6 },
+            colors: ['#58cc02', '#a5ed6e', '#1cb0f6', '#ffc800', '#ff9600', '#ec4899'],
+            disableForReducedMotion: true,
+        });
+        setTimeout(() => {
+            confetti({
+                particleCount: 45,
+                angle: 60,
+                spread: 60,
+                origin: { x: 0, y: 0.7 },
+                colors: ['#58cc02', '#1cb0f6', '#ffc800'],
+                disableForReducedMotion: true,
+            });
+        }, 120);
+        setTimeout(() => {
+            confetti({
+                particleCount: 45,
+                angle: 120,
+                spread: 60,
+                origin: { x: 1, y: 0.7 },
+                colors: ['#58cc02', '#1cb0f6', '#ffc800'],
+                disableForReducedMotion: true,
+            });
+        }, 240);
+    } catch (e) {
+        // Confetti fallback
+    }
+};
+
 const Rewards = () => {
     const [activeTab, setActiveTab] = useState('daily');
     const [rewardData, setRewardData] = useState(null);
@@ -32,8 +90,10 @@ const Rewards = () => {
     const [loading, setLoading] = useState(true);
     const [claiming, setClaiming] = useState(null);
     const [timeLeft, setTimeLeft] = useState('');
+    const [celebrationData, setCelebrationData] = useState(null);
     const { user, setUser } = useAuth();
     const navigate = useNavigate();
+    const shouldReduceMotion = useReducedMotion();
 
     const fetchData = async () => {
         try {
@@ -42,7 +102,7 @@ const Rewards = () => {
                 api.post('/store/daily-reward', {}),
                 api.get('/rewards/daily-tasks')
             ]);
-            
+
             setRewardData(rewardRes.data);
             setTaskData(taskRes.data.tasks || []);
         } catch (err) {
@@ -54,11 +114,15 @@ const Rewards = () => {
 
     useEffect(() => {
         fetchData();
+    }, []);
+
+    useEffect(() => {
         const timer = setInterval(() => {
             if (rewardData?.next_claim_at) {
                 const diff = rewardData.next_claim_at - Date.now();
-                if (diff <= 0) setTimeLeft('Ready!');
-                else {
+                if (diff <= 0) {
+                    setTimeLeft('Ready!');
+                } else {
                     const h = Math.floor(diff / (1000 * 60 * 60));
                     const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
                     const s = Math.floor((diff % (1000 * 60)) / 1000);
@@ -70,18 +134,30 @@ const Rewards = () => {
     }, [rewardData?.next_claim_at]);
 
     const handleClaimDaily = async () => {
-        if (rewardData?.granted === false) return;
+        if (rewardData?.granted === false && rewardData?.message === 'Already claimed today') return;
         setClaiming('daily');
         try {
             const { data } = await api.post('/store/daily-reward', {});
             setRewardData(data);
-            if (data.granted && setUser) {
-                setUser(prev => ({ 
-                    ...prev, 
-                    coins: data.new_coins, 
-                    xp: data.new_xp,
-                    inventory: data.inventory || prev.inventory
-                }));
+            if (data.granted) {
+                if (setUser) {
+                    setUser(prev => ({
+                        ...prev,
+                        coins: data.new_coins,
+                        xp: data.new_xp,
+                        inventory: data.inventory || prev.inventory
+                    }));
+                }
+                triggerClaimConfetti();
+                playClaimChime();
+                setCelebrationData({
+                    title: 'STREAK EXTENDED!',
+                    subtitle: `You claimed Day ${data.day_in_cycle || data.streak}! Keep the civic streak burning.`,
+                    coins: data.coins_awarded || 75,
+                    xp: data.xp_awarded || 50,
+                    icon: '🔥',
+                    streak: data.streak
+                });
             }
         } catch (err) {
             console.error(err);
@@ -90,13 +166,24 @@ const Rewards = () => {
         }
     };
 
-    const handleClaimTask = async (taskId) => {
-        setClaiming(taskId);
+    const handleClaimTask = async (task) => {
+        setClaiming(task.id);
         try {
-            const { data } = await api.post(`/rewards/claim-task/${taskId}`);
+            const { data } = await api.post(`/rewards/claim-task/${task.id}`);
             if (data.success) {
-                setTaskData(prev => prev.map(t => t.id === taskId ? { ...t, completed: true } : t));
-                if (setUser) setUser(prev => ({ ...prev, coins: data.new_coins, xp: data.new_xp }));
+                setTaskData(prev => prev.map(t => t.id === task.id ? { ...t, completed: true } : t));
+                if (setUser) {
+                    setUser(prev => ({ ...prev, coins: data.new_coins, xp: data.new_xp }));
+                }
+                triggerClaimConfetti();
+                playClaimChime();
+                setCelebrationData({
+                    title: 'QUEST COMPLETED!',
+                    subtitle: `Awesome work on "${task.label}"! Civic reward credited.`,
+                    coins: task.reward_coins,
+                    xp: task.reward_xp,
+                    icon: '🎯'
+                });
             }
         } catch (err) {
             console.error(err);
@@ -105,201 +192,459 @@ const Rewards = () => {
         }
     };
 
-    if (loading && !rewardData) return <div className="loader-container"><div className="loader"></div></div>;
-
-    const currentDay = rewardData?.day_in_cycle || 0;
+    const currentDay = rewardData?.day_in_cycle || (rewardData?.streak ? ((rewardData.streak - 1) % 30) + 1 : 1);
     const isTodayClaimed = !rewardData?.granted && rewardData?.message === 'Already claimed today';
-
-    // Animation variants
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: { 
-            opacity: 1, 
-            transition: { 
-                staggerChildren: 0.05 
-            }
-        }
-    };
-
-    const itemVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
-    };
+    const streakCount = rewardData?.streak || 0;
+    const userCoins = user?.coins || 0;
 
     return (
-        <div className="rewards-page" style={{
-            minHeight: '100vh',
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '2rem',
-            fontFamily: '"Space Grotesk", sans-serif',
-            color: '#fff'
-        }}>
-            <motion.div 
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="glass-panel"
-                style={{
-                    width: '1200px',
-                    height: '800px',
-                    borderRadius: '16px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                    position: 'relative'
-                }}
-            >
-                {/* Header */}
-                <div style={{
-                    height: '70px',
-                    background: 'rgba(61, 68, 81, 0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '0 2rem',
-                    gap: '2.5rem',
-                    borderBottom: '1px solid rgba(255,255,255,0.05)'
-                }}>
-                    <div style={{ color: '#d3bc8e', fontWeight: '900', fontSize: '1.4rem', letterSpacing: '1px' }}>EVENT CENTER</div>
-                    {['daily', 'tasks'].map(tab => (
-                        <div 
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            style={{
-                                color: activeTab === tab ? '#fff' : 'rgba(255,255,255,0.5)',
-                                cursor: 'pointer',
-                                height: '100%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                padding: '0 1.5rem',
-                                borderBottom: activeTab === tab ? '4px solid #d3bc8e' : 'none',
-                                fontWeight: 'bold',
-                                textTransform: 'uppercase',
-                                fontSize: '0.9rem',
-                                transition: 'all 0.3s ease'
-                            }}
+        <div className="rewards-page-wrapper">
+            <div className="rewards-container">
+                {/* ── Top Bar / Header Card ── */}
+                <div className="rewards-header-card">
+                    <div className="rewards-title-area">
+                        <span className="rewards-title-icon" aria-hidden="true">🏆</span>
+                        <div>
+                            <h1 className="rewards-main-title">Civic Rewards</h1>
+                            <p className="rewards-sub-title">Check in daily and finish civic quests to earn coins.</p>
+                        </div>
+                    </div>
+
+                    {/* Duolingo Pill Tabs */}
+                    <div className="rewards-tabs-group" role="tablist">
+                        <button
+                            role="tab"
+                            aria-selected={activeTab === 'daily'}
+                            onClick={() => setActiveTab('daily')}
+                            className={`rewards-tab-btn ${activeTab === 'daily' ? 'active' : ''}`}
                         >
-                            {tab === 'daily' ? 'Check-in Rewards' : 'Daily Commissions'}
+                            <span aria-hidden="true">📅</span>
+                            <span>Check-in Rewards</span>
+                        </button>
+                        <button
+                            role="tab"
+                            aria-selected={activeTab === 'tasks'}
+                            onClick={() => setActiveTab('tasks')}
+                            className={`rewards-tab-btn ${activeTab === 'tasks' ? 'active' : ''}`}
+                        >
+                            <span aria-hidden="true">⚡</span>
+                            <span>Daily Commissions</span>
+                        </button>
+                    </div>
+
+                    {/* User Wealth Pill & Close */}
+                    <div className="rewards-status-group">
+                        <div className="rewards-balance-chip">
+                            <span aria-hidden="true">🪙</span>
+                            <span>{userCoins.toLocaleString()}</span>
                         </div>
-                    ))}
-                    <div style={{ marginLeft: 'auto', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', fontSize: '1.5rem' }} onClick={() => navigate('/dashboard')}>✖</div>
+                        <button
+                            onClick={() => navigate('/dashboard')}
+                            className="rewards-close-btn"
+                            aria-label="Back to dashboard"
+                        >✕</button>
+                    </div>
                 </div>
 
-                <div style={{ flex: 1, display: 'flex' }}>
-                    {/* Sidebar */}
-                    <div style={{ width: '350px', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(0,0,0,0.2)', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ transform: 'scale(0.85)', transformOrigin: 'top center', marginBottom: '-2rem' }}>
-                            <ProfileCard
-                                name={user?.username}
-                                title={`Lv. ${user?.level || 1} • ${user?.xp?.toLocaleString() || 0} XP`}
-                                handle={user?.email?.split('@')[0]}
-                                status="Online"
-                                avatarUrl={`https://ui-avatars.com/api/?name=${user?.username || 'U'}&background=0D8ABC&color=fff&size=150`}
-                                miniAvatarUrl={`https://ui-avatars.com/api/?name=${user?.username || 'U'}&background=0D8ABC&color=fff&size=50`}
-                                enableTilt={true}
-                            />
-                        </div>
-                        <div style={{ textAlign: 'center', marginTop: 'auto' }}>
-                            <h3 style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', fontWeight: 'bold', margin: 0, textTransform: 'uppercase' }}>Login Streak</h3>
-                            <div style={{ fontSize: '4.5rem', fontWeight: '900', color: '#d3bc8e', lineHeight: 1 }}>{rewardData?.streak || 0}</div>
-                            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem', fontStyle: 'italic', marginTop: '1rem' }}>"May the city stay clean under your watch!"</p>
+                {/* ── Duolingo Streak Hero Banner ── */}
+                <div className="duo-streak-hero">
+                    <div className="duo-streak-left">
+                        <motion.div
+                            animate={shouldReduceMotion ? {} : { scale: [1, 1.05, 1] }}
+                            transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+                            className="duo-flame-circle"
+                        >
+                            <span className="duo-flame-icon" aria-hidden="true">🔥</span>
+                            <span className="duo-flame-count">{streakCount}</span>
+                        </motion.div>
+
+                        <div className="duo-streak-details">
+                            <span className="duo-streak-badge">LOGIN STREAK</span>
+                            <h2 className="duo-streak-heading">
+                                {streakCount === 1 ? '1 Day Streak!' : `${streakCount} Days Streak!`}
+                            </h2>
+                            <p className="duo-streak-message">
+                                {isTodayClaimed
+                                    ? 'Great job checking in today! Keep your streak burning tomorrow.'
+                                    : 'Check in right now to claim your daily rewards and extend your streak!'}
+                            </p>
                         </div>
                     </div>
 
-                    {/* Content */}
-                    <div className="reward-content-scroll" style={{ flex: 1, padding: '2.5rem', overflowY: 'auto' }}>
-                        <AnimatePresence mode="wait">
-                            {activeTab === 'daily' ? (
-                                <motion.div key="daily" variants={containerVariants} initial="hidden" animate="visible" exit="hidden" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '1rem' }}>
-                                    {MONTHLY_REWARDS.map((item, idx) => {
-                                        const r = RARITY[item.rarity];
-                                        const isClaimed = idx + 1 < currentDay || (idx + 1 === currentDay && isTodayClaimed);
-                                        const isToday = idx + 1 === currentDay && !isTodayClaimed;
-                                        return (
-                                            <motion.div
-                                                key={item.day}
-                                                variants={itemVariants}
-                                                onClick={() => isToday && handleClaimDaily()}
-                                                className={`reward-card-premium ${isToday ? 'is-today' : ''}`}
-                                                style={{
-                                                    background: isClaimed ? 'rgba(0,0,0,0.3)' : 'rgba(255, 255, 255, 0.05)',
-                                                    borderRadius: '8px',
-                                                    padding: '0.75rem',
-                                                    textAlign: 'center',
-                                                    border: isToday ? '2px solid #d3bc8e' : '1px solid rgba(255,255,255,0.05)',
-                                                    cursor: isToday ? 'pointer' : 'default',
-                                                    opacity: idx + 1 > currentDay + 1 ? 0.6 : 1
-                                                }}
-                                            >
-                                                <div style={{ height: '80px', background: r.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', borderRadius: '4px', marginBottom: '0.5rem', position: 'relative' }}>
-                                                    {item.icon}
-                                                    {isClaimed && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px' }}>✅</div>}
-                                                </div>
-                                                <div style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>x{item.qty}</div>
-                                                <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)' }}>Day {item.day}</div>
-                                            </motion.div>
-                                        );
-                                    })}
-                                </motion.div>
-                            ) : (
-                                <motion.div key="tasks" variants={containerVariants} initial="hidden" animate="visible" exit="hidden" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    {taskData.map((task) => (
-                                        <motion.div key={task.id} variants={itemVariants} className="commission-item" style={{
-                                            background: 'rgba(255,255,255,0.04)',
-                                            padding: '1.25rem',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '1.5rem',
-                                            borderRadius: '12px',
-                                            border: '1px solid rgba(255,255,255,0.05)'
-                                        }}>
-                                            <div style={{ fontSize: '2.5rem', minWidth: '60px', textAlign: 'center' }}>
-                                                {task.id === 'view_heatmap' ? '🗺️' : task.id === 'view_leaderboard' ? '🏆' : task.id === 'submit_report' ? '🚨' : task.id === 'view_profile' ? '👤' : '💬'}
+                    <div className="duo-streak-right">
+                        {isTodayClaimed ? (
+                            <div className="duo-cooldown-pill">
+                                <span aria-hidden="true">⏳</span>
+                                <span>Next reward in: <strong className="duo-cooldown-time">{timeLeft || 'calculating...'}</strong></span>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={handleClaimDaily}
+                                disabled={claiming === 'daily'}
+                                className="duo-btn duo-btn-primary"
+                            >
+                                {claiming === 'daily' ? 'CLAIMING...' : 'CLAIM TODAY REWARD'}
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* ── Tab 1: Focused Today's Reward (Simple Day-by-Day View) ── */}
+                <AnimatePresence mode="wait">
+                    {activeTab === 'daily' && (() => {
+                        const todayReward = MONTHLY_REWARDS[Math.max(0, (currentDay - 1) % 30)] || MONTHLY_REWARDS[0];
+                        const todayRarity = RARITY[todayReward.rarity] || RARITY.COMMON;
+                        const cycleDay = ((currentDay - 1) % 7) + 1;
+
+                        const WEEK_DAYS = [
+                            { day: 1, label: 'Day 1', icon: '💎' },
+                            { day: 2, label: 'Day 2', icon: '📔' },
+                            { day: 3, label: 'Day 3', icon: '💎' },
+                            { day: 4, label: 'Day 4', icon: '📔' },
+                            { day: 5, label: 'Day 5', icon: '💠' },
+                            { day: 6, label: 'Day 6', icon: '📔' },
+                            { day: 7, label: 'Day 7', icon: '🎁', milestone: true },
+                        ];
+
+                        return (
+                            <motion.div
+                                key="daily"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.25 }}
+                                className="duo-today-reward-container"
+                            >
+                                {/* Centerpiece: Today's Reward Card */}
+                                <div className={`duo-today-card ${isTodayClaimed ? 'claimed' : 'unclaimed'}`}>
+                                    <div className="duo-today-header-badge">
+                                        <span>📅</span>
+                                        <span>
+                                            {isTodayClaimed ? `TODAY CLAIMED - DAY ${currentDay}` : `TODAY REWARD - DAY ${currentDay}`}
+                                        </span>
+                                    </div>
+
+                                    {/* Reward Hero Box */}
+                                    <motion.div
+                                        animate={shouldReduceMotion || isTodayClaimed ? {} : {
+                                            y: [-4, 4, -4],
+                                            rotate: [-1.5, 1.5, -1.5]
+                                        }}
+                                        transition={{ repeat: Infinity, duration: 2.6, ease: 'easeInOut' }}
+                                        className="duo-today-hero-box"
+                                        style={{ background: todayRarity.bg, borderColor: todayRarity.border }}
+                                    >
+                                        <span className="duo-today-hero-emoji" aria-hidden="true">
+                                            {todayReward.icon}
+                                        </span>
+
+                                        {isTodayClaimed && (
+                                            <div className="duo-today-claimed-overlay" aria-label="Claimed">
+                                                ✅
                                             </div>
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{task.label}</div>
-                                                <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>{task.desc}</div>
-                                                <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                    <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                                                        <div style={{ width: `${Math.min(100, (task.current_progress / (task.goal || 1)) * 100)}%`, height: '100%', background: task.completed ? '#22c55e' : '#4b96ff', borderRadius: '3px' }} />
-                                                    </div>
-                                                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{task.current_progress}/{task.goal || 1}</span>
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', paddingLeft: '1.5rem', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
-                                                <div style={{ textAlign: 'right', minWidth: '80px' }}>
-                                                    <div style={{ color: '#ffb13b', fontWeight: 'bold' }}>🪙 {task.reward_coins}</div>
-                                                    <div style={{ color: '#4b96ff', fontWeight: 'bold' }}>⚡ {task.reward_xp}</div>
-                                                </div>
-                                                {task.completed ? (
-                                                    <button disabled style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)', border: 'none', padding: '0.6rem 2rem', borderRadius: '6px', fontSize: '0.8rem' }}>Claimed</button>
-                                                ) : task.can_claim ? (
-                                                    <button onClick={() => handleClaimTask(task.id)} disabled={claiming === task.id} style={{ background: '#d3bc8e', color: '#1a1a1a', border: 'none', padding: '0.6rem 2rem', borderRadius: '6px', fontWeight: '900', cursor: 'pointer', boxShadow: '0 0 15px rgba(211, 188, 142, 0.3)', fontSize: '0.8rem' }}>Claim</button>
-                                                ) : (
-                                                    <button onClick={() => navigate(task.id === 'view_heatmap' ? '/heatmap' : task.id === 'view_leaderboard' ? '/leaderboard' : task.id === 'view_profile' ? `/profile/${user?.username}` : '/reports')} style={{ background: 'transparent', color: '#4b96ff', border: '1.5px solid #4b96ff', padding: '0.5rem 2rem', borderRadius: '6px', fontWeight: '900', cursor: 'pointer', fontSize: '0.8rem' }}>Go</button>
-                                                )}
-                                            </div>
-                                        </motion.div>
-                                    ))}
-                                    {taskData.length === 0 && (
-                                        <div style={{ textAlign: 'center', padding: '3rem', opacity: 0.5 }}>
-                                            <h3>Updating commissions...</h3>
-                                            <button onClick={fetchData} style={{ background: '#d3bc8e', color: '#1a1a1a', border: 'none', padding: '0.5rem 1rem', borderRadius: '4px', marginTop: '1rem', cursor: 'pointer' }}>Manual Refresh</button>
+                                        )}
+                                    </motion.div>
+
+                                    <h2 className="duo-today-name">{todayReward.name}</h2>
+                                    <p className="duo-today-desc">
+                                        {todayReward.isItem
+                                            ? 'Special streak milestone bonus! Added straight to your inventory.'
+                                            : 'Daily civic check-in bonus for keeping the city clean and green.'}
+                                    </p>
+
+                                    {/* Values Row */}
+                                    <div className="duo-today-rewards-row">
+                                        <div className="duo-today-val-chip coins">
+                                            <span aria-hidden="true">🪙</span>
+                                            <span>+{todayReward.qty} EcoCoins</span>
                                         </div>
-                                    )}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                </div>
+                                        <div className="duo-today-val-chip xp">
+                                            <span aria-hidden="true">⚡</span>
+                                            <span>+50 XP</span>
+                                        </div>
+                                    </div>
 
-                {/* Footer */}
-                <div style={{ height: '40px', background: 'rgba(61, 68, 81, 0.4)', display: 'flex', alignItems: 'center', padding: '0 2rem', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                    <span>NEXT REWARD IN: <span style={{ color: '#fff', fontWeight: 'bold' }}>{timeLeft || 'READY'}</span></span>
-                    <span style={{ marginLeft: 'auto' }}>Adventurer Rank: {user?.level || 1}</span>
-                </div>
-            </motion.div>
+                                    {/* Action State */}
+                                    {isTodayClaimed ? (
+                                        <div className="duo-today-claimed-box">
+                                            <div className="duo-today-claimed-msg">
+                                                <span>✓</span>
+                                                <span>Claimed for Today!</span>
+                                            </div>
+                                            <div className="duo-today-next-timer">
+                                                Next check-in unlocks in: <strong>{timeLeft || 'calculating...'}</strong>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={handleClaimDaily}
+                                            disabled={claiming === 'daily'}
+                                            className="duo-btn duo-btn-primary"
+                                            style={{ width: '100%', maxWidth: '340px', margin: '0 auto', fontSize: '15px' }}
+                                        >
+                                            {claiming === 'daily' ? 'CLAIMING...' : 'CLAIM TODAY REWARD'}
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Compact 7-Day Weekly Streak Track */}
+                                <div className="duo-week-strip-card">
+                                    <div className="duo-week-strip-header">
+                                        <h3 className="duo-week-strip-title">7-Day Streak Goal</h3>
+                                        <span className="duo-week-strip-hint">🎁 Day 7 Mystery Chest</span>
+                                    </div>
+
+                                    <div className="duo-week-nodes-row">
+                                        {WEEK_DAYS.map((node) => {
+                                            const isClaimed = node.day < cycleDay || (node.day === cycleDay && isTodayClaimed);
+                                            const isToday = node.day === cycleDay;
+
+                                            return (
+                                                <div
+                                                    key={node.day}
+                                                    className={`duo-week-node ${isClaimed ? 'claimed' : ''} ${isToday ? 'today' : ''} ${node.milestone ? 'milestone' : ''}`}
+                                                >
+                                                    <div className="duo-week-node-circle">
+                                                        {isClaimed ? '✓' : isToday ? '🔥' : node.icon}
+                                                    </div>
+                                                    <span className="duo-week-node-label">{node.label}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </motion.div>
+                        );
+                    })()}
+
+                    {/* ── Tab 2: Daily Commissions / Quests ── */}
+                    {activeTab === 'tasks' && (
+                        <motion.div
+                            key="tasks"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.25 }}
+                            className="duo-quests-list"
+                        >
+                            {taskData.map((task) => {
+                                const progressPct = Math.min(100, Math.round(((task.current_progress || 0) / (task.goal || 1)) * 100));
+                                const taskIcon =
+                                    task.id === 'view_heatmap' ? '🗺️' :
+                                    task.id === 'view_leaderboard' ? '🏆' :
+                                    task.id === 'submit_report' ? '🚨' :
+                                    task.id === 'view_profile' ? '👤' : '💬';
+
+                                const destinationUrl =
+                                    task.id === 'view_heatmap' ? '/heatmap' :
+                                    task.id === 'view_leaderboard' ? '/leaderboard' :
+                                    task.id === 'view_profile' ? `/profile/${user?.username || ''}` :
+                                    '/reports';
+
+                                return (
+                                    <div
+                                        key={task.id}
+                                        className={`duo-quest-card ${task.completed ? 'completed' : ''}`}
+                                    >
+                                        <div className="duo-quest-icon-wrap" aria-hidden="true">
+                                            {taskIcon}
+                                        </div>
+
+                                        <div className="duo-quest-info">
+                                            <div className="duo-quest-title-row">
+                                                <h3 className="duo-quest-title">{task.label}</h3>
+                                            </div>
+                                            <p className="duo-quest-desc">{task.desc}</p>
+
+                                            {/* Progress Bar */}
+                                            <div className="duo-quest-progress-row">
+                                                <div className="duo-quest-progress-track">
+                                                    <div
+                                                        className="duo-quest-progress-fill"
+                                                        style={{ width: `${progressPct}%` }}
+                                                    />
+                                                </div>
+                                                <span className="duo-quest-progress-num">
+                                                    {task.current_progress || 0} / {task.goal || 1}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Rewards & Actions */}
+                                        <div className="duo-quest-actions-wrap">
+                                            <div className="duo-quest-rewards">
+                                                <span className="duo-quest-reward-coin">🪙 +{task.reward_coins}</span>
+                                                <span className="duo-quest-reward-xp">⚡ +{task.reward_xp} XP</span>
+                                            </div>
+
+                                            {task.completed ? (
+                                                <button disabled className="duo-btn duo-btn-muted">
+                                                    CLAIMED ✓
+                                                </button>
+                                            ) : task.can_claim ? (
+                                                <button
+                                                    onClick={() => handleClaimTask(task)}
+                                                    disabled={claiming === task.id}
+                                                    className="duo-btn duo-btn-primary"
+                                                >
+                                                    {claiming === task.id ? 'CLAIMING...' : 'CLAIM'}
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => navigate(destinationUrl)}
+                                                    className="duo-btn duo-btn-accent"
+                                                >
+                                                    GO →
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                            {taskData.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '40px 20px', background: '#fff', borderRadius: '16px', border: '2px solid #e5e5e5' }}>
+                                    <span style={{ fontSize: '2.5rem' }}>⏳</span>
+                                    <h3 style={{ margin: '10px 0 4px', color: 'var(--duo-text)' }}>Updating Daily Commissions</h3>
+                                    <p style={{ color: 'var(--duo-text-muted)', fontSize: '13px' }}>Check back shortly for fresh civic assignments.</p>
+                                    <button onClick={fetchData} className="duo-btn duo-btn-primary" style={{ marginTop: '12px' }}>
+                                        REFRESH
+                                    </button>
+                                </div>
+                            )}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* ── Duolingo Claim Celebration Modal with Rich Spring Animations ── */}
+                <AnimatePresence>
+                    {celebrationData && (
+                        <div
+                            onClick={() => setCelebrationData(null)}
+                            className="duo-reward-modal-overlay"
+                        >
+                            <motion.div
+                                initial={shouldReduceMotion ? false : { scale: 0.3, y: 70, opacity: 0, rotate: -3 }}
+                                animate={{ scale: [0.3, 1.15, 0.96, 1.03, 1], y: 0, opacity: 1, rotate: [-3, 2, -1, 0] }}
+                                exit={{ scale: 0.8, opacity: 0, y: 20 }}
+                                transition={{ type: 'spring', damping: 14, stiffness: 280 }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="duo-reward-modal-box"
+                            >
+                                {/* Rotating Sunburst Rays Halo */}
+                                <div className="duo-reward-halo" aria-hidden="true" />
+
+                                {/* Floating Sparkle Particles */}
+                                <motion.span
+                                    className="duo-sparkle duo-sparkle-1"
+                                    initial={{ scale: 0, opacity: 0 }}
+                                    animate={{ scale: [0, 1.3, 1], opacity: [0, 1, 0.8] }}
+                                    transition={{ delay: 0.2, duration: 0.4 }}
+                                >✨</motion.span>
+                                <motion.span
+                                    className="duo-sparkle duo-sparkle-2"
+                                    initial={{ scale: 0, opacity: 0 }}
+                                    animate={{ scale: [0, 1.3, 1], opacity: [0, 1, 0.8] }}
+                                    transition={{ delay: 0.3, duration: 0.4 }}
+                                >⭐</motion.span>
+                                <motion.span
+                                    className="duo-sparkle duo-sparkle-3"
+                                    initial={{ scale: 0, opacity: 0 }}
+                                    animate={{ scale: [0, 1.3, 1], opacity: [0, 1, 0.8] }}
+                                    transition={{ delay: 0.35, duration: 0.4 }}
+                                >🌟</motion.span>
+
+                                {/* Animated Hero Icon Container with Bouncy Overshoot and Floating Wobble */}
+                                <motion.div
+                                    initial={shouldReduceMotion ? false : { scale: 0, rotate: -25 }}
+                                    animate={{
+                                        scale: [0, 1.35, 0.92, 1.08, 1],
+                                        rotate: [-25, 12, -4, 0],
+                                        y: [-3, 3, -3]
+                                    }}
+                                    transition={{
+                                        scale: { type: 'spring', damping: 12, stiffness: 350, delay: 0.1 },
+                                        rotate: { type: 'spring', damping: 12, stiffness: 350, delay: 0.1 },
+                                        y: { repeat: Infinity, duration: 2.4, ease: 'easeInOut', delay: 0.6 }
+                                    }}
+                                    className="duo-reward-hero-icon"
+                                    aria-hidden="true"
+                                >
+                                    <span className="duo-reward-hero-emoji">
+                                        {celebrationData.icon || '🎁'}
+                                    </span>
+
+                                    {/* Snap-in Checkmark Badge */}
+                                    <motion.div
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: [0, 1.4, 1] }}
+                                        transition={{ delay: 0.35, type: 'spring', stiffness: 500 }}
+                                        className="duo-reward-check-bubble"
+                                    >
+                                        ✓
+                                    </motion.div>
+                                </motion.div>
+
+                                {/* Title with Duolingo Bold Spring Bounce */}
+                                <motion.h2
+                                    initial={{ scale: 0.7, y: 15, opacity: 0 }}
+                                    animate={{ scale: [0.7, 1.12, 1], y: 0, opacity: 1 }}
+                                    transition={{ delay: 0.25, type: 'spring', stiffness: 350 }}
+                                    className="duo-reward-modal-title"
+                                >
+                                    {celebrationData.title}
+                                </motion.h2>
+
+                                {/* Subtitle with Fade & Slide */}
+                                <motion.p
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.32, duration: 0.25 }}
+                                    className="duo-reward-modal-subtitle"
+                                >
+                                    {celebrationData.subtitle}
+                                </motion.p>
+
+                                {/* Staggered Pop-in for Reward Chips */}
+                                <div className="duo-reward-chips-row">
+                                    <motion.div
+                                        initial={{ scale: 0, y: 25, opacity: 0 }}
+                                        animate={{ scale: [0, 1.25, 0.95, 1], y: 0, opacity: 1 }}
+                                        transition={{ delay: 0.38, type: 'spring', stiffness: 450, damping: 18 }}
+                                        className="duo-reward-chip coins"
+                                    >
+                                        <span aria-hidden="true">🪙</span>
+                                        <span>+{celebrationData.coins} EcoCoins</span>
+                                    </motion.div>
+
+                                    <motion.div
+                                        initial={{ scale: 0, y: 25, opacity: 0 }}
+                                        animate={{ scale: [0, 1.25, 0.95, 1], y: 0, opacity: 1 }}
+                                        transition={{ delay: 0.48, type: 'spring', stiffness: 450, damping: 18 }}
+                                        className="duo-reward-chip xp"
+                                    >
+                                        <span aria-hidden="true">⚡</span>
+                                        <span>+{celebrationData.xp} XP</span>
+                                    </motion.div>
+                                </div>
+
+                                {/* Animated 3D Button with Sheen Reflection */}
+                                <motion.button
+                                    initial={{ scale: 0.8, y: 20, opacity: 0 }}
+                                    animate={{ scale: 1, y: 0, opacity: 1 }}
+                                    transition={{ delay: 0.58, type: 'spring', stiffness: 350 }}
+                                    onClick={() => setCelebrationData(null)}
+                                    className="duo-btn duo-btn-primary duo-reward-confirm-btn"
+                                    style={{ width: '100%' }}
+                                >
+                                    <span>AWESOME!</span>
+                                    <div className="duo-btn-shine" aria-hidden="true" />
+                                </motion.button>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+            </div>
         </div>
     );
 };
