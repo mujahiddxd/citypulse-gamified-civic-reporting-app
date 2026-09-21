@@ -45,6 +45,7 @@ Built as a modern React Single-Page Application (SPA) leveraging declarative UI 
   - `leaflet.heat` for dynamic client-side heatmaps weighted by complaint severity.
 - **State & Context Management**:
   - `AuthContext`: Manages user authentication lifecycle, JWT token caching, profile data, and session persistence with Supabase Auth.
+  - `ThemeContext`: Drives the versatile dynamic multi-theme engine (`[data-theme]` and `[data-mode]`), handles zero-flicker local caching, and coordinates with the Civic Store to sync equipped themes, animated titles, and avatar borders with the database.
 - **Data Visualization**: `recharts` for civic metrics (complaints by type, resolution rates, cleanliness trend curves).
 - **HTTP Client**: Centralized Axios instance ([frontend/src/utils/api.js](file:///c:/Users/Shaban%20Chaudhary/Desktop/Projects/community%20projects/Garbage%20and%20crowd%20Management/garbagemap/frontend/src/utils/api.js)) with automatic request interceptors injecting JWT Bearer tokens.
 
