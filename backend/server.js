@@ -60,18 +60,23 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined'));
 }
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/complaints', complaintsRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/admin-pass', adminPassRoutes);
-app.use('/api/leaderboard', leaderboardRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/api/chatbot', chatbotRoutes);
-app.use('/api/feedback', feedbackRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/heatmap', heatmapRoutes);
-app.use('/api/areas', areasRoutes);
+// Routes (mounted on /api and root fallback to prevent 404s if /api is omitted)
+const mountRoutes = (prefix = '') => {
+  app.use(`${prefix}/auth`, authRoutes);
+  app.use(`${prefix}/complaints`, complaintsRoutes);
+  app.use(`${prefix}/admin`, adminRoutes);
+  app.use(`${prefix}/admin-pass`, adminPassRoutes);
+  app.use(`${prefix}/leaderboard`, leaderboardRoutes);
+  app.use(`${prefix}/profile`, profileRoutes);
+  app.use(`${prefix}/chatbot`, chatbotRoutes);
+  app.use(`${prefix}/feedback`, feedbackRoutes);
+  app.use(`${prefix}/analytics`, analyticsRoutes);
+  app.use(`${prefix}/heatmap`, heatmapRoutes);
+  app.use(`${prefix}/areas`, areasRoutes);
+};
+
+mountRoutes('/api');
+mountRoutes('');
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import axios from 'axios';
+import api from '../utils/api';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchProfile = async (userId, token) => {
     try {
-      const { data } = await axios.get(`${process.env.REACT_APP_API_URL}/profile/me/xp-history`, {
+      const { data } = await api.get('/profile/me/xp-history', {
         headers: { Authorization: `Bearer ${token}` }
       });
       // Fetch user profile from supabase directly
