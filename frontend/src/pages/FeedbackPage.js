@@ -28,7 +28,7 @@ const FeedbackPage = () => {
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="card" style={{ maxWidth: '440px', textAlign: 'center', padding: '3rem' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', textTransform: 'uppercase' }}>Feedback Received!</h2>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '0.75rem' }}>Thank you for helping improve GarbageMaps.</p>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.75rem' }}>Thank you for helping improve CityPulse.</p>
           <button className="btn btn-secondary" style={{ marginTop: '1.5rem' }} onClick={() => setSuccess(false)}>Submit Another</button>
         </motion.div>
       </div>

@@ -4,8 +4,9 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import AdminLayout from '../../components/admin/AdminLayout';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { SkeletonAdminAnalytics } from '../../components/ui/SkeletonLoader';
 
-const COLORS = ['#C62828', '#2196F3', '#4CAF50', '#FF9800', '#9C27B0'];
+const COLORS = ['#c62828', '#2196F3', '#4CAF50', '#FF9800', '#9C27B0'];
 
 const AdminAnalytics = () => {
   const [timeData, setTimeData] = useState([]);
@@ -18,13 +19,15 @@ const AdminAnalytics = () => {
   useEffect(() => {
     if (session?.access_token) localStorage.setItem('access_token', session.access_token);
     fetchAll();
-  }, [session]);
+  }, [session?.access_token]);
 
   const fetchAll = async () => {
+    setLoading(true);
+    const start = Date.now();
     try {
       const [time, type, area, users] = await Promise.all([
         api.get('/analytics/complaints-over-time'),
-        api.get('/analytics/type-distribution'),
+        api.get('/analytics/severity-distribution'),
         api.get('/analytics/area-counts'),
         api.get('/analytics/top-users'),
       ]);
@@ -35,6 +38,8 @@ const AdminAnalytics = () => {
     } catch (err) {
       console.error(err);
     } finally {
+      const elapsed = Date.now() - start;
+        
       setLoading(false);
     }
   };
@@ -43,7 +48,7 @@ const AdminAnalytics = () => {
   const AXIS_STYLE = { fill: '#757575', fontSize: '10px' };
   const TOOLTIP_STYLE = { background: '#1F1F1F', border: '1px solid #333', borderRadius: '8px', color: '#F5F5F5', fontSize: '0.8rem' };
 
-  if (loading) return <AdminLayout title="Analytics"><div>Loading...</div></AdminLayout>;
+  if (loading) return <AdminLayout title="📈 Analytics"><SkeletonAdminAnalytics /></AdminLayout>;
 
   return (
     <AdminLayout title="📈 Analytics">
@@ -61,7 +66,7 @@ const AdminAnalytics = () => {
               <YAxis tick={AXIS_STYLE} />
               <Tooltip contentStyle={TOOLTIP_STYLE} />
               <Legend />
-              <Line type="monotone" dataKey="total" stroke="#C62828" strokeWidth={2} dot={false} name="Total" />
+              <Line type="monotone" dataKey="total" stroke="#c62828" strokeWidth={2} dot={false} name="Total" />
               <Line type="monotone" dataKey="approved" stroke="#4CAF50" strokeWidth={2} dot={false} name="Approved" />
               <Line type="monotone" dataKey="rejected" stroke="#FF9800" strokeWidth={2} dot={false} name="Rejected" />
             </LineChart>
@@ -69,10 +74,10 @@ const AdminAnalytics = () => {
         </motion.div>
 
         <div className="grid grid-2">
-          {/* Type Distribution */}
+          {/* Severity Distribution */}
           <motion.div className="card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', textTransform: 'uppercase', marginBottom: '1.5rem', color: 'var(--text-secondary)' }}>
-              🥧 Complaint Type Distribution
+              🥧 Complaint Severity Distribution
             </h3>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
@@ -95,7 +100,7 @@ const AdminAnalytics = () => {
                 <XAxis type="number" tick={AXIS_STYLE} />
                 <YAxis dataKey="area" type="category" tick={AXIS_STYLE} width={100} />
                 <Tooltip contentStyle={TOOLTIP_STYLE} />
-                <Bar dataKey="count" fill="#C62828" radius={[0, 4, 4, 0]} name="Complaints" />
+                <Bar dataKey="count" fill="#c62828" radius={[0, 4, 4, 0]} name="Complaints" />
               </BarChart>
             </ResponsiveContainer>
           </motion.div>

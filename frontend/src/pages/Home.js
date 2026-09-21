@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
+import { SkeletonHome } from '../components/ui/SkeletonLoader';
+import Stepper, { Step } from '../components/ui/Stepper';
 
 const FEATURES = [
   { icon: '📍', title: 'Report Issues', desc: 'Drop a pin, snap a photo, describe the problem. Takes 60 seconds.' },
@@ -16,23 +18,37 @@ const FEATURES = [
 const Home = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState({ totalComplaints: 0, approved: 0, totalUsers: 0, pending: 0 });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch real stats from the public leaderboard + complaints
-    Promise.all([
-      api.get('/leaderboard'),
-      api.get('/complaints?limit=1000'),
-    ]).then(([lb, complaints]) => {
-      const total = complaints.data?.length || 0;
-      const approved = complaints.data?.filter(c => c.status === 'Approved').length || 0;
-      setStats({
-        totalComplaints: total,
-        approved,
-        totalUsers: lb.data?.length || 0,
-        resolutionRate: total > 0 ? Math.round((approved / total) * 100) : 0,
-      });
-    }).catch(() => {});
+    const fetchStats = async () => {
+      setLoading(true);
+      const start = Date.now();
+      try {
+        const [lb, complaints] = await Promise.all([
+          api.get('/leaderboard'),
+          api.get('/complaints?limit=1000'),
+        ]);
+        const total = complaints.data?.length || 0;
+        const approved = complaints.data?.filter(c => c.status === 'Approved').length || 0;
+        setStats({
+          totalComplaints: total,
+          approved,
+          totalUsers: lb.data?.length || 0,
+          resolutionRate: total > 0 ? Math.round((approved / total) * 100) : 0,
+        });
+      } catch (err) {
+        console.error('Home stats fetch error');
+      } finally {
+        const elapsed = Date.now() - start;
+        if (elapsed < 2000) await new Promise(r => setTimeout(r, 2000 - elapsed));
+        setLoading(false);
+      }
+    };
+    fetchStats();
   }, []);
+
+  if (loading) return <SkeletonHome />;
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
@@ -81,7 +97,7 @@ const Home = () => {
             fontSize: '1.15rem', color: '#4B5563',
             maxWidth: '520px', margin: '0 auto 2.5rem', lineHeight: '1.75',
           }}>
-            Turn civic frustration into action. Report garbage and crowd issues, earn XP, and make your city cleaner.
+            Turn civic frustration into action. Report garbage issues, earn XP, and make your city cleaner.
           </p>
 
           <div style={{ display: 'flex', gap: '0.875rem', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -130,6 +146,60 @@ const Home = () => {
         </div>
       </section>
 
+      {/* Tutorial Section */}
+      <section style={{ padding: '6rem 2rem', background: '#f8fafc' }}>
+        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: '800', textTransform: 'uppercase', color: '#111827' }}>
+            How It <span style={{ color: '#C62828' }}>Works</span>
+          </h2>
+          <p style={{ color: '#6B7280', marginTop: '0.75rem', fontSize: '1rem' }}>
+            A quick interactive guide to making your city better.
+          </p>
+        </div>
+
+        <Stepper
+          initialStep={1}
+          backButtonText="Previous"
+          nextButtonText="Next"
+        >
+          <Step>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: '800', color: '#111' }}>1. Report an Issue 📸</h2>
+            <img style={{ height: '300px', width: '100%', objectFit: 'cover', borderRadius: '12px', marginTop: '1rem', border: '3px solid #111', boxShadow: '4px 4px 0px #111' }} src="https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?w=800&q=80" alt="Report Trash" />
+            <p style={{ marginTop: '1.5rem', color: '#4B5563', fontSize: '1.1rem', lineHeight: '1.6', maxWidth: '600px' }}>
+              Spot some garbage or a civic issue? Snap a photo, drop a pin on the map, and submit a complaint. It takes less than 60 seconds to notify the authorities.
+            </p>
+          </Step>
+          <Step>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: '800', color: '#111' }}>2. Track on the Feed 📰</h2>
+            <img style={{ height: '300px', width: '100%', objectFit: 'cover', borderRadius: '12px', marginTop: '1rem', border: '3px solid #111', boxShadow: '4px 4px 0px #111' }} src="https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&q=80" alt="Feed" />
+            <p style={{ marginTop: '1.5rem', color: '#4B5563', fontSize: '1.1rem', lineHeight: '1.6', maxWidth: '600px' }}>
+              Once reported, your issue appears on the public feed. Everyone can see the real-time status as the city works to resolve it.
+            </p>
+          </Step>
+          <Step>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: '800', color: '#111' }}>3. Climb the League 🏆</h2>
+            <img style={{ height: '300px', width: '100%', objectFit: 'cover', borderRadius: '12px', marginTop: '1rem', border: '3px solid #111', boxShadow: '4px 4px 0px #111' }} src="https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?w=800&q=80" alt="Leaderboard" />
+            <p style={{ marginTop: '1.5rem', color: '#4B5563', fontSize: '1.1rem', lineHeight: '1.6', maxWidth: '600px' }}>
+              Earn XP for every valid report! Climb the leaderboard and compete with other citizens to become the ultimate Eco-Warrior.
+            </p>
+          </Step>
+          <Step>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: '800', color: '#111' }}>4. Shop the Reward Store 🎁</h2>
+            <img style={{ height: '300px', width: '100%', objectFit: 'cover', borderRadius: '12px', marginTop: '1rem', border: '3px solid #111', boxShadow: '4px 4px 0px #111' }} src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&q=80" alt="Store" />
+            <p style={{ marginTop: '1.5rem', color: '#4B5563', fontSize: '1.1rem', lineHeight: '1.6', maxWidth: '600px' }}>
+              Use your hard-earned Coins to buy cool cosmetic items, profile borders, and badges in the Reward Store.
+            </p>
+          </Step>
+          <Step>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: '800', color: '#111' }}>5. Equip in Inventory 🎒</h2>
+            <img style={{ height: '300px', width: '100%', objectFit: 'cover', borderRadius: '12px', marginTop: '1rem', border: '3px solid #111', boxShadow: '4px 4px 0px #111' }} src="https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=800&q=80" alt="Inventory" />
+            <p style={{ marginTop: '1.5rem', color: '#4B5563', fontSize: '1.1rem', lineHeight: '1.6', maxWidth: '600px' }}>
+              Head to your Inventory to equip your new items and show them off to the community. You're ready to make a difference!
+            </p>
+          </Step>
+        </Stepper>
+      </section>
+
       {/* Features */}
       <section style={{ padding: '6rem 2rem', maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
@@ -157,6 +227,32 @@ const Home = () => {
               <p style={{ color: '#6B7280', fontSize: '0.9rem', lineHeight: '1.65' }}>{f.desc}</p>
             </motion.div>
           ))}
+        </div>
+      </section>
+
+      {/* Bug Report Section */}
+      <section style={{ padding: '4rem 2rem', background: '#FEF2F2', borderTop: '1px solid #FECACA', borderBottom: '1px solid #FECACA' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: '900', textTransform: 'uppercase', color: '#991B1B', marginBottom: '1rem' }}>
+            🐛 Found a Bug?
+          </h2>
+          <p style={{ color: '#7F1D1D', fontSize: '1.1rem', marginBottom: '2rem', lineHeight: '1.6' }}>
+            CityPulse is in active development. If you encounter any technical issues, glitches, or have suggestions for new features, let our developers know! Your feedback helps us improve the platform for everyone.
+          </p>
+          <Link to="/feedback"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+              padding: '1rem 2.5rem', background: '#991B1B', color: 'white',
+              borderRadius: '10px', fontFamily: 'var(--font-display)', fontSize: '1.1rem',
+              fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em',
+              boxShadow: '0 4px 15px rgba(153, 27, 27, 0.3)', textDecoration: 'none',
+              transition: 'transform 0.2s', cursor: 'pointer',
+            }}
+            onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+          >
+            <span>🚨</span> Report App Bug
+          </Link>
         </div>
       </section>
 

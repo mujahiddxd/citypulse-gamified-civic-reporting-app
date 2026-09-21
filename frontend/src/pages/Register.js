@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import '../styles/Login.css';
 
 const RULES = {
   username: /^[a-zA-Z0-9]{4,20}$/,
@@ -39,44 +40,57 @@ const Register = () => {
     setLoading(true);
     setServerError('');
 
-    const { error } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: { data: { username: form.username } }
-    });
-
-    setLoading(false);
-    if (error) {
-      setServerError(error.message);
-    } else {
-      setSuccess(true);
+    try {
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/auth/register`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: form.username,
+            email: form.email,
+            password: form.password,
+            confirmPassword: form.confirmPassword,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setServerError(data.error || data.errors?.[0]?.msg || 'Registration failed');
+      } else {
+        setSuccess(true);
+      }
+    } catch (err) {
+      setServerError('Could not connect to server. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   if (success) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="card" style={{ maxWidth: '440px', width: '100%', padding: '3rem', textAlign: 'center' }}>
+      <div className="login-container">
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="login-card" style={{ maxWidth: '440px', textAlign: 'center' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', marginBottom: '1rem', textTransform: 'uppercase' }}>Account Created!</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Check your email to verify your account, then log in.</p>
-          <Link to="/login" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Go to Login</Link>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', marginBottom: '1rem', textTransform: 'uppercase' }}>You're In!</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Account created successfully. You can log in right now — no email verification needed.</p>
+          <Link to="/login" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>🔐 Go to Login</Link>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+    <div className="login-container">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="card"
-        style={{ maxWidth: '480px', width: '100%', padding: '2.5rem' }}
+        className="login-card"
+        style={{ maxWidth: '480px' }}
       >
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🗺️</div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', textTransform: 'uppercase' }}>Join GarbageMaps</h1>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', textTransform: 'uppercase' }}>Join CityPulse</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Start making your city better</p>
         </div>
 

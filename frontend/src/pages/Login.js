@@ -2,27 +2,92 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+import '../styles/Login.css';
 
 export const Login = () => {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { supabase } = useAuth();
+  const [showAnimation, setShowAnimation] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const { supabase, user } = useAuth();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    // If we were authenticating and the user profile has now loaded (not the fallback 'User')
+    if (isAuthenticating && user && user.username !== 'User') {
+      const timer = setTimeout(() => {
+        setIsAuthenticating(false);
+        setShowAnimation(false);
+      }, 1500); // Small buffer for the animation
+      return () => clearTimeout(timer);
+    }
+  }, [user, isAuthenticating]);
+
+  React.useEffect(() => {
+    // Final redirection once animation is done and role is known
+    if (user && user.role && !showAnimation && !isAuthenticating) {
+      const role = user.role.toLowerCase();
+      if (role === 'admin') {
+        navigate('/admin');
+      } else if (role === 'officer') {
+        navigate('/admin/complaints');
+      } else {
+        navigate('/dashboard');
+      }
+    }
+  }, [user, navigate, showAnimation, isAuthenticating]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.signInWithPassword(form);
-    setLoading(false);
-    if (error) setError('Invalid email or password');
-    else navigate('/dashboard');
+
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword(form);
+
+      if (signInError) {
+        setError(signInError.message || 'Invalid email or password');
+        setLoading(false);
+        return;
+      }
+
+      // Start the animation and wait for the profile to load
+      setIsAuthenticating(true);
+      setShowAnimation(true);
+
+    } catch (err) {
+      setError('Something went wrong. Please try again.');
+      setLoading(false);
+    }
   };
 
+  if (showAnimation) {
+    return (
+      <div className="login-container">
+        <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="login-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
+          <div style={{ width: '250px', height: '250px', marginBottom: '1rem' }}>
+            <DotLottieReact
+              src="https://assets8.lottiefiles.com/packages/lf20_uUiMgkSnl3.json"
+              loop
+              autoplay
+            />
+          </div>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', textTransform: 'uppercase', color: 'var(--text-primary)', textAlign: 'center', margin: '0' }}>
+            Successfully Logged In!
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontWeight: 'bold', fontSize: '1rem' }}>
+            Fetching your data... please wait.
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ maxWidth: '420px', width: '100%', padding: '2.5rem' }}>
+    <div className="login-container">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="login-card">
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🗺️</div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', textTransform: 'uppercase' }}>Welcome Back</h1>
@@ -38,15 +103,37 @@ export const Login = () => {
             <input type="password" className="form-input" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} placeholder="Your password" required />
           </div>
           <div style={{ textAlign: 'right' }}>
-            <Link to="/forgot-password" style={{ color: 'var(--red-400)', fontSize: '0.85rem' }}>Forgot password?</Link>
+            <Link to="/forgot-password" style={{ color: 'var(--red-400)', fontSize: '0.85rem', transition: 'color 0.3s' }}>Forgot password?</Link>
           </div>
-          <button type="submit" className="btn btn-primary" disabled={loading} style={{ justifyContent: 'center', padding: '0.875rem' }}>
+          <motion.button
+            type="submit"
+            className="btn btn-primary"
+            disabled={loading}
+            whileHover={{ scale: 1.02, boxShadow: '0 0 15px rgba(229, 57, 53, 0.4)' }}
+            whileTap={{ scale: 0.98 }}
+            style={{ justifyContent: 'center', padding: '0.875rem', position: 'relative', overflow: 'hidden' }}>
             {loading ? 'Logging in...' : '🔐 Log In'}
-          </button>
+          </motion.button>
         </form>
-        <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '1.5rem', fontSize: '0.9rem' }}>
-          New to GarbageMaps? <Link to="/register" style={{ color: 'var(--red-400)', fontWeight: '600' }}>Sign up</Link>
-        </p>
+        <div style={{
+          marginTop: '2rem',
+          paddingTop: '1.5rem',
+          borderTop: '1px solid rgba(255,255,255,0.1)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem',
+          alignItems: 'center'
+        }}>
+          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            New to CityPulse? <Link to="/register" style={{ color: 'var(--red-400)', fontWeight: '600' }}>Sign up</Link>
+          </p>
+
+          <div style={{ background: 'rgba(198,40,40,0.1)', border: '1px solid rgba(198,40,40,0.2)', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.2rem' }}>🛡️</span>
+            <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Admin Control Panel</span>
+            <Link to="/admin-login" style={{ marginLeft: '1rem', color: 'var(--red-400)', fontWeight: 'bold', fontSize: '0.85rem' }}>ENTER →</Link>
+          </div>
+        </div>
       </motion.div>
     </div>
   );
@@ -69,8 +156,8 @@ export const ForgotPassword = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ maxWidth: '420px', width: '100%', padding: '2.5rem' }}>
+    <div className="login-container">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="login-card">
         {sent ? (
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📧</div>
@@ -132,8 +219,8 @@ export const ResetPassword = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ maxWidth: '420px', width: '100%', padding: '2.5rem' }}>
+    <div className="login-container">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="login-card">
         {success ? (
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>

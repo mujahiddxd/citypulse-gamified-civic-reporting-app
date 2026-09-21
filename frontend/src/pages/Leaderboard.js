@@ -2,117 +2,127 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../utils/api';
+import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+import { SkeletonLeaderboard } from '../components/ui/SkeletonLoader';
+import '../styles/Leaderboard.css';
 
 const RANK_STYLES = {
-  1: { bg: 'rgba(255,215,0,0.1)', border: 'rgba(255,215,0,0.4)', icon: '🥇', color: '#FFD700' },
-  2: { bg: 'rgba(192,192,192,0.1)', border: 'rgba(192,192,192,0.4)', icon: '🥈', color: '#C0C0C0' },
-  3: { bg: 'rgba(205,127,50,0.1)', border: 'rgba(205,127,50,0.4)', icon: '🥉', color: '#CD7F32' },
+  1: { bg: '#FFDC2B', border: '#111111', icon: '🥇', color: '#111111' },
+  2: { bg: '#e2e8f0', border: '#111111', icon: '🥈', color: '#111111' },
+  3: { bg: '#f59e0b', border: '#111111', icon: '🥉', color: '#111111' },
 };
 
 const Leaderboard = () => {
-  const [leaders, setLeaders] = useState([]);
+  const [data, setData] = useState({ season: null, leaderboard: [] });
   const [loading, setLoading] = useState(true);
+  const { authUser, session } = useAuth();
 
   useEffect(() => {
-    api.get('/leaderboard').then(r => {
-      setLeaders(r.data);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
+    if (session?.access_token) localStorage.setItem('access_token', session.access_token);
+    
+    const fetchLeaders = async () => {
+      setLoading(true);
+      const start = Date.now();
+      try {
+        const { data } = await api.get('/leaderboard');
+        setData(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        const elapsed = Date.now() - start;
+        if (elapsed < 2000) await new Promise(r => setTimeout(r, 2000 - elapsed));
+        setLoading(false);
+      }
+    };
+    fetchLeaders();
+  }, [session?.access_token]);
+
+  const { season, leaderboard: leaders } = data;
 
   return (
     <div className="page" style={{ maxWidth: '800px', margin: '0 auto' }}>
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center', marginBottom: '3rem' }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2.5rem, 6vw, 4rem)', fontWeight: '900', textTransform: 'uppercase' }}>
-          🏆 <span style={{ color: 'var(--red-500)' }}>Global</span> Leaderboard
+          🏆 <span style={{ color: 'var(--accent)' }}>Global</span> Leaderboard
         </h1>
-        <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Top civic champions, ranked by XP</p>
+        {season && (
+          <div style={{ marginTop: '1rem', display: 'inline-block', padding: '0.5rem 1rem', background: '#FFDC2B', borderRadius: '9999px', border: '2px solid #111', boxShadow: '2px 2px 0px #111' }}>
+            <span style={{ fontWeight: '800', fontFamily: 'var(--font-display)', color: '#111', marginRight: '0.5rem' }}>SEASON {season.number}</span>
+            <span style={{ fontSize: '0.8rem', color: '#111', fontWeight: '700' }}>• Ends in {season.daysLeft} days</span>
+          </div>
+        )}
+        <p style={{ color: 'var(--text-secondary)', marginTop: '1rem' }}>Top civic champions of the current season</p>
       </motion.div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '4rem' }}>Loading leaderboard...</div>
+        <SkeletonLeaderboard />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-          {leaders.map((user, index) => {
+        <div className="leaderboard-container">
+          {(leaders || []).map((user, index) => {
             const rankStyle = RANK_STYLES[user.rank] || {};
+            const inventory = user.inventory || [];
+            const equippedBorder = inventory.find(i => i.startsWith('EQUIPPED_BORDER:'))?.split(':')[1];
+            const equippedTitle = inventory.find(i => i.startsWith('EQUIPPED_TITLE:'))?.split(':')[1];
+            const hasGoldenShimmer = inventory.includes('Golden Shimmer');
+            const isEquipped = user.id === authUser?.id; // Defined isEquipped
+
             return (
               <motion.div
                 key={user.id}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.07 }}
+                transition={{ delay: index * 0.05 }}
+                className={`leaderboard-user-card ${isEquipped ? 'leaderboard-user-card-equipped' : ''}`}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '1.25rem',
-                  padding: '1.25rem 1.5rem',
-                  background: rankStyle.bg || 'var(--bg-card)',
-                  border: `1px solid ${rankStyle.border || 'var(--border)'}`,
+                  background: isEquipped ? 'rgba(99, 102, 241, 0.05)' : rankStyle.bg || '#ffffff',
+                  border: isEquipped ? '3px solid var(--accent)' : `2px solid ${rankStyle.border || '#111111'}`,
                   borderRadius: 'var(--radius-lg)',
-                  transition: 'transform 0.2s',
+                  transition: 'transform 0.1s',
+                  boxShadow: '4px 4px 0px #111111',
                   cursor: 'default',
                 }}
-                whileHover={{ transform: 'translateX(4px)' }}
+                whileHover={{ transform: 'translate(-2px, -2px)', boxShadow: '6px 6px 0px #111111' }}
               >
                 {/* Rank */}
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontFamily: 'var(--font-display)',
-                  fontSize: user.rank <= 3 ? '1.8rem' : '1.3rem',
-                  fontWeight: '900',
-                  color: rankStyle.color || 'var(--text-muted)',
-                  flexShrink: 0,
-                }}>
-                  {user.rank <= 3 ? rankStyle.icon : `#${user.rank}`}
+                <div className="leaderboard-rank-badge" style={{ color: rankStyle.color || 'var(--text-primary)' }}>
+                  {index < 3 ? rankStyle.icon : `#${index + 1}`}
                 </div>
 
-                {/* Avatar */}
-                <div style={{
-                  width: '44px', height: '44px',
-                  borderRadius: '50%',
-                  background: `hsl(${(user.id.charCodeAt(0) * 47) % 360}, 60%, 40%)`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: 'var(--font-display)',
-                  fontWeight: '800',
-                  fontSize: '1.1rem',
-                  flexShrink: 0,
-                }}>
+                {/* Avatar with optional equipped border */}
+                <div
+                  className={`leaderboard-avatar ${equippedBorder === 'neon-aura' ? 'effect-neon-aura' : ''}`}
+                  style={{
+                    background: `hsl(${(user.id.charCodeAt(0) * 47) % 360}, 60%, 40%)`
+                  }}>
                   {user.username[0].toUpperCase()}
                 </div>
 
                 {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <Link to={`/profile/${user.username}`} style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: '1.1rem',
-                    fontWeight: '700',
-                    textTransform: 'uppercase',
-                    color: rankStyle.color || 'var(--text-primary)',
-                    letterSpacing: '0.03em',
+                <div className="leaderboard-user-info">
+                  <Link to={`/profile/${user.username}`} className={`leaderboard-username ${equippedTitle === 'champion-title' ? 'effect-champion-title' : ''}`} style={{
+                    color: rankStyle.color || 'var(--text-primary)'
                   }}>
                     {user.username}
                   </Link>
-                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                  {hasGoldenShimmer && <span className="effect-golden-checkmark" style={{ marginLeft: '0.4rem', fontSize: '0.9rem' }}>🌟</span>}
+                  <div className="leaderboard-user-badges">
                     {user.badges?.slice(0, 4).map((b, i) => (
                       <span key={i} title={b.name} style={{ fontSize: '0.9rem' }}>{b.icon}</span>
                     ))}
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <span className="leaderboard-approved-label">
                       {user.approvedCount} approved reports
                     </span>
                   </div>
                 </div>
 
                 {/* XP & Level */}
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', fontWeight: '900', color: rankStyle.color || 'var(--text-primary)' }}>
-                    {user.xp?.toLocaleString()}
+                <div className="leaderboard-stats">
+                  <div className="leaderboard-sxp" style={{ color: rankStyle.color || 'var(--primary-blue)' }}>
+                    {user.seasonXp?.toLocaleString()} S-XP
                   </div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    XP • Lv. {user.level}
+                  <div className="leaderboard-alltime">
+                    ALL-TIME: {user.allTimeXp?.toLocaleString()} XP • Lv. {user.level}
                   </div>
                 </div>
               </motion.div>
@@ -121,8 +131,8 @@ const Leaderboard = () => {
         </div>
       )}
 
-      {leaders.length === 0 && !loading && (
-        <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
+      {(!leaders || leaders.length === 0) && !loading && (
+        <div className="leaderboard-empty">
           No data yet. Be the first on the leaderboard!
         </div>
       )}

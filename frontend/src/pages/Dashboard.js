@@ -1,41 +1,110 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import { supabase } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import DailyRewardModal from '../components/ui/DailyRewardModal';
+import { SkeletonDashboard } from '../components/ui/SkeletonLoader';
+import '../styles/Dashboard.css';
 
 const StatusBadge = ({ status }) => (
   <span className={`badge badge-${status.toLowerCase()}`}>{status}</span>
 );
 
 const Dashboard = () => {
-  const { user, session } = useAuth();
+  const { user, session, setUser } = useAuth();
+  const { theme, equippedBorder, equippedTitle } = useTheme();
   const [complaints, setComplaints] = useState([]);
   const [badges, setBadges] = useState([]);
   const [xpHistory, setXpHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [leagueOptIn, setLeagueOptIn] = useState(false);
+  const [leagueLoading, setLeagueLoading] = useState(false);
+  const [dailyReward, setDailyReward] = useState(null);
+  const [showRewardModal, setShowRewardModal] = useState(false);
+
+  // Try to decode standalone admin token if present
+  const adminToken = localStorage.getItem('citypulse_admin_token');
+  let decodedUser = null;
+  if (adminToken) {
+    try {
+      const base64Url = adminToken.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => 
+        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+      ).join(''));
+      decodedUser = JSON.parse(jsonPayload);
+    } catch (_) {}
+  }
+
+  const currentUser = decodedUser || user;
+  const role = currentUser?.role?.toLowerCase();
+  const isOfficial = role === 'admin' || role === 'officer';
 
   useEffect(() => {
     if (!session?.access_token) return;
     localStorage.setItem('access_token', session.access_token);
     fetchData();
-  }, [session]);
+    checkDailyReward();
+  }, [session?.access_token]);
+
+  const checkDailyReward = async () => {
+    try {
+      const { data } = await api.post('/store/daily-reward', {});
+      // Always show the modal so users can see the weekly chart
+      // The modal handles both granted=true and granted=false states
+      setDailyReward(data);
+      setShowRewardModal(true);
+    } catch (err) {
+      console.warn('[Daily Reward] Check failed:', err.message);
+    }
+  };
+
+  const claimReward = async () => {
+    // Update user coins/xp in AuthContext from the already-granted reward data
+    if (dailyReward && setUser) {
+      setUser(prev => ({
+        ...prev,
+        coins: dailyReward.new_coins,
+        xp: dailyReward.new_xp,
+      }));
+    }
+  };
 
   const fetchData = async () => {
+    setLoading(true);
+    const startTimer = Date.now();
     try {
-      const [complaintsRes, badgesRes, xpRes] = await Promise.all([
+      const [complaintsRes, badgesRes, xpRes, meRes] = await Promise.all([
         api.get('/complaints/my'),
         supabase.from('user_badges').select('badges (name, description, icon), earned_at').eq('user_id', user.id),
-        api.get('/profile/me/xp-history')
+        api.get('/profile/me/xp-history'),
+        api.get('/profile/me')
       ]);
       setComplaints(complaintsRes.data);
       setBadges(badgesRes.data?.map(b => ({ ...b.badges, earned_at: b.earned_at })) || []);
       setXpHistory(xpRes.data);
+      setLeagueOptIn(meRes.data?.leaderboard_opt_in || false);
     } catch (err) {
       console.error(err);
     } finally {
+      const elapsed = Date.now() - startTimer;
+        
       setLoading(false);
+    }
+  };
+
+  const toggleLeague = async () => {
+    setLeagueLoading(true);
+    try {
+      const { data } = await api.post('/profile/me/leaderboard-optin', { opted_in: !leagueOptIn });
+      setLeagueOptIn(data.leaderboard_opt_in);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLeagueLoading(false);
     }
   };
 
@@ -46,16 +115,28 @@ const Dashboard = () => {
   const approved = complaints.filter(c => c.status === 'Approved').length;
   const pending = complaints.filter(c => c.status === 'Pending').length;
 
-  if (loading) return <div className="page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}>Loading...</div>;
+  if (loading) return <SkeletonDashboard />;
 
   return (
     <div className="page">
+      {/* Daily Reward Modal */}
+      <AnimatePresence>
+        {showRewardModal && dailyReward && (
+          <DailyRewardModal
+            data={dailyReward}
+            onClaim={claimReward}
+            onClose={() => setShowRewardModal(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', fontWeight: '900', textTransform: 'uppercase' }}>
-          Welcome back, <span style={{ color: 'var(--red-500)' }}>{user?.username}</span>
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="dashboard-header">
+        <h1 className="dashboard-title">
+          Welcome back, <span className={equippedTitle === 'champion-title' ? 'effect-champion-title' : ''} style={{ color: 'var(--accent)' }}>{user?.username}</span>
+          {user?.inventory?.includes('Golden Shimmer') && <span className="effect-golden-checkmark" style={{ marginLeft: '0.5rem' }}>🌟</span>}
         </h1>
-        <p style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Your civic impact dashboard</p>
+        <p className="dashboard-subtitle">Your civic impact dashboard</p>
       </motion.div>
 
       {/* Stats row */}
@@ -75,19 +156,19 @@ const Dashboard = () => {
       </div>
 
       {/* Level Progress */}
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+      <div className="card level-progress-card">
+        <div className="progress-header">
           <div>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Level {user?.level || 1} Progress</span>
+            <span className="progress-label">Level {user?.level || 1} Progress</span>
           </div>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+          <span className="progress-label">
             {user?.xp || 0} / {xpForNextLevel} XP
           </span>
         </div>
-        <div className="progress-bar">
+        <div className="progress-track">
           <motion.div className="progress-fill" initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 1, ease: 'easeOut' }} />
         </div>
-        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+        <div className="progress-hint">
           {Math.round(xpForNextLevel - (user?.xp || 0))} XP to Level {(user?.level || 1) + 1}
         </div>
       </div>
@@ -104,13 +185,9 @@ const Dashboard = () => {
               {badges.map((b, i) => (
                 <motion.div key={i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.1 }}
                   title={b.description}
+                  className="badge-item"
                   style={{
                     padding: '0.5rem 0.875rem',
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '999px',
-                    fontSize: '0.85rem',
-                    cursor: 'default',
                   }}>
                   {b.icon} {b.name}
                 </motion.div>
@@ -138,6 +215,87 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+
+      {/* League Opt-In Card */}
+      <div className="card" style={{
+        background: leagueOptIn
+          ? 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)'
+          : 'linear-gradient(135deg, #fff 0%, #f8fafc 100%)',
+        border: leagueOptIn ? '2px solid #6366f1' : '2px solid #e2e8f0',
+        boxShadow: leagueOptIn ? '4px 4px 0px #6366f1' : '4px 4px 0px #e2e8f0',
+        transition: 'all 0.3s',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span style={{ fontSize: '2.5rem' }}>🏆</span>
+            <div>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: '900', color: leagueOptIn ? '#fff' : '#0f172a', margin: 0 }}>
+                {leagueOptIn ? 'You\'re in the League!' : 'Join the League'}
+              </h2>
+              <p style={{ color: leagueOptIn ? '#a5b4fc' : '#64748b', fontSize: '0.88rem', margin: '0.25rem 0 0', maxWidth: '380px' }}>
+                {leagueOptIn
+                  ? 'Your XP is visible on the Global Leaderboard. Keep reporting to climb the ranks!'
+                  : 'Opt-in to appear on the Global Leaderboard. Your reports earn XP and rank you among CityPulse champions.'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={toggleLeague}
+            disabled={leagueLoading}
+            style={{
+              padding: '0.7rem 1.5rem', borderRadius: '10px',
+              border: '2px solid',
+              borderColor: leagueOptIn ? '#ef4444' : '#6366f1',
+              background: leagueOptIn ? 'rgba(239,68,68,0.1)' : '#6366f1',
+              color: leagueOptIn ? '#ef4444' : '#fff',
+              fontFamily: 'var(--font-display)', fontWeight: '800',
+              fontSize: '0.88rem', cursor: leagueLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s', whiteSpace: 'nowrap',
+            }}
+          >
+            {leagueLoading ? '...' : leagueOptIn ? '🚪 Leave League' : '🏆 Join League'}
+          </button>
+        </div>
+      </div>
+
+      {/* Ward & Officer Section */}
+      {isOfficial && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <div className="section-header">
+            <h2 className="section-title" style={{ fontSize: '1.1rem' }}>🏢 Local Wards & Officers</h2>
+            <Link to="/wards" style={{ fontSize: '0.8rem', color: 'var(--red-400)' }}>View Map</Link>
+          </div>
+          <div className="grid grid-2" style={{ gap: '1rem' }}>
+            {[
+              { name: "Thane Mumbra", officer: "Rajesh Kumar", contact: "+91 98765 43210", color: "#FF5722" },
+              { name: "Mumbai Kurla", officer: "Sneha Patil", contact: "+91 91234 56789", color: "#2196F3" }
+            ].map((ward, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.1 }}
+                style={{
+                  padding: '1rem',
+                  background: '#f8fafc',
+                  borderRadius: '12px',
+                  borderLeft: `4px solid ${ward.color}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1rem'
+                }}
+              >
+                <div style={{ fontSize: '1.5rem' }}>👨‍💼</div>
+                <div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '900', color: '#1e293b' }}>{ward.name}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}><span style={{ fontWeight: '700' }}>WHO IS IN CHARGE?</span> {ward.officer}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{ward.contact}</div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent Complaints */}
       <div className="card">

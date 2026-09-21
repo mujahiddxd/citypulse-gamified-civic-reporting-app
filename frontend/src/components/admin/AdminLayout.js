@@ -1,9 +1,13 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { clearAdminToken } from '../../pages/admin/AdminLogin';
+import { useAuth } from '../../context/AuthContext';
 
 const ADMIN_LINKS = [
-  { path: '/admin', label: 'Overview', icon: '📊' },
+  { path: '/admin', label: 'Overview', icon: '📊', exact: true },
   { path: '/admin/complaints', label: 'Complaints', icon: '📋' },
+  { path: '/wards', label: 'Ward Map', icon: '🗺️' },
   { path: '/admin/analytics', label: 'Analytics', icon: '📈' },
   { path: '/admin/users', label: 'Users', icon: '👥' },
   { path: '/admin/feedback', label: 'Feedback', icon: '📝' },
@@ -11,62 +15,241 @@ const ADMIN_LINKS = [
 
 const AdminLayout = ({ children, title }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Override body styles while in admin — removes anime background
+  useEffect(() => {
+    const origBg = document.body.style.background;
+    const origBgImage = document.body.style.backgroundImage;
+    const origPadding = document.body.style.padding;
+    document.body.style.background = '#f1f5f9';
+    document.body.style.backgroundImage = 'none';
+    document.body.style.padding = '0';
+
+    // STRICT SECURITY CHECK: Re-verify token on layout mount
+    const token = localStorage.getItem('citypulse_admin_token');
+    
+    // We can't use useAuth here easily as it's a lifecycle effect, 
+    // but the AdminRoute guard in App.js handles the primary check.
+    // This is a secondary "fail-safe" check.
+    if (!token) {
+      // If no admin token, check if we have a supabase user with admin role
+      // This is a bit tricky without hooks, but we can check the API
+      import('../../utils/api').then(({ default: api }) => {
+        api.get('/auth/me').then(res => {
+          const user = res.data;
+          if (!user || (user.role !== 'admin' && user.role !== 'officer')) {
+            navigate('/admin-login', { replace: true });
+          }
+        }).catch(() => {
+          navigate('/admin-login', { replace: true });
+        });
+      });
+    } else {
+      import('../../pages/admin/AdminLogin').then(({ verifyAdminToken }) => {
+        verifyAdminToken(token).then(valid => {
+          if (!valid) {
+            localStorage.removeItem('citypulse_admin_token');
+            navigate('/admin-login', { replace: true });
+          }
+        });
+      });
+    }
+
+    return () => {
+      document.body.style.background = origBg;
+      document.body.style.backgroundImage = origBgImage;
+      document.body.style.padding = origPadding;
+    };
+  }, [navigate]);
+
+  const { user: authUser } = useAuth();
+
+  // Try to decode standalone admin token if present
+  const adminToken = localStorage.getItem('citypulse_admin_token');
+  let decodedUser = null;
+  if (adminToken) {
+    try {
+      const base64Url = adminToken.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => 
+        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+      ).join(''));
+      decodedUser = JSON.parse(jsonPayload);
+    } catch (_) {}
+  }
+
+  const currentUser = decodedUser || authUser;
+  const role = currentUser?.role?.toLowerCase();
+
+  const filteredLinks = ADMIN_LINKS.filter(link => {
+    if (role === 'officer') {
+      return ['Complaints', 'Ward Map'].includes(link.label);
+    }
+    return true; // Admins see everything
+  });
+
+  const handleLogout = () => {
+    clearAdminToken();
+    navigate('/admin-login');
+  };
+
+  const isActive = (link) =>
+    link.exact ? location.pathname === link.path : location.pathname.startsWith(link.path);
 
   return (
-    <div style={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
+    <div style={{
+      display: 'flex',
+      minHeight: '100vh',
+      background: '#f1f5f9',
+      fontFamily: 'var(--font-body)',
+    }}>
       {/* Sidebar */}
-      <nav style={{
-        width: '220px',
-        background: 'var(--bg-card)',
-        borderRight: '1px solid var(--border)',
-        padding: '1.5rem 0',
+      <aside style={{
+        width: sidebarOpen ? '240px' : '64px',
+        background: '#0f172a',
+        display: 'flex',
+        flexDirection: 'column',
         flexShrink: 0,
+        transition: 'width 0.25s ease',
+        overflow: 'hidden',
+        boxShadow: '4px 0 20px rgba(0,0,0,0.25)',
+        zIndex: 10,
       }}>
-        <div style={{ padding: '0 1rem 1rem', borderBottom: '1px solid var(--border)', marginBottom: '0.5rem' }}>
+        {/* Logo */}
+        <div style={{
+          padding: '1.25rem 1rem',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          display: 'flex', alignItems: 'center', gap: '0.75rem',
+          flexShrink: 0,
+        }}>
           <div style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '0.7rem',
-            fontWeight: '700',
-            letterSpacing: '0.15em',
-            textTransform: 'uppercase',
-            color: 'var(--red-400)',
-          }}>Admin Panel</div>
+            width: '36px', height: '36px', borderRadius: '10px',
+            background: '#C62828', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0,
+          }}>{role === 'admin' ? '🛡️' : '👨‍✈️'}</div>
+          {sidebarOpen && (
+            <div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: '900', color: '#fff', fontSize: '1rem', lineHeight: 1 }}>
+                City<span style={{ color: '#FFDC2B' }}>Pulse</span>
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.65rem', letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: '2px' }}>
+                {role === 'admin' ? 'Admin Portal' : 'Officer Hub'}
+              </div>
+            </div>
+          )}
         </div>
-        {ADMIN_LINKS.map(({ path, label, icon }) => {
-          const active = location.pathname === path;
-          return (
-            <Link key={path} to={path} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              padding: '0.75rem 1rem',
-              fontFamily: 'var(--font-display)',
-              fontSize: '0.85rem',
-              fontWeight: '600',
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              color: active ? 'white' : 'var(--text-secondary)',
-              background: active ? 'var(--red-700)' : 'transparent',
-              borderRadius: '6px',
-              margin: '0 0.5rem',
-              transition: 'all 0.2s',
-            }}>
-              <span>{icon}</span>
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
 
-      {/* Content */}
-      <main style={{ flex: 1, padding: '2rem', overflow: 'auto' }}>
-        {title && (
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: '900', textTransform: 'uppercase', marginBottom: '2rem' }}>
-            {title}
-          </h1>
-        )}
-        {children}
-      </main>
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: '0.75rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {filteredLinks.map(({ path, label, icon, exact }) => {
+            const active = exact ? location.pathname === path : location.pathname.startsWith(path);
+            return (
+              <Link key={path} to={path} title={label} style={{
+                display: 'flex', alignItems: 'center',
+                gap: '0.75rem', padding: '0.7rem 0.85rem',
+                borderRadius: '10px',
+                background: active ? 'rgba(198,40,40,0.9)' : 'transparent',
+                color: active ? '#fff' : 'rgba(255,255,255,0.55)',
+                fontFamily: 'var(--font-display)', fontWeight: '700',
+                fontSize: '0.85rem', letterSpacing: '0.04em',
+                textTransform: 'uppercase', transition: 'all 0.15s',
+                textDecoration: 'none', whiteSpace: 'nowrap', overflow: 'hidden',
+              }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#fff'; }}
+                onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; } }}
+              >
+                <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{icon}</span>
+                {sidebarOpen && label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Sidebar footer */}
+        <div style={{ padding: '0.75rem 0.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+              padding: '0.6rem 0.85rem', borderRadius: '10px',
+              background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)',
+              cursor: 'pointer', fontSize: '0.85rem', fontFamily: 'var(--font-display)',
+              fontWeight: '700', width: '100%', textAlign: 'left', whiteSpace: 'nowrap',
+            }}
+          >
+            <span style={{ fontSize: '1rem', flexShrink: 0 }}>{sidebarOpen ? '◀' : '▶'}</span>
+            {sidebarOpen && 'Collapse'}
+          </button>
+          <button
+            onClick={handleLogout}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+              padding: '0.6rem 0.85rem', borderRadius: '10px',
+              background: 'transparent', border: 'none', color: 'rgba(239,68,68,0.7)',
+              cursor: 'pointer', fontSize: '0.85rem', fontFamily: 'var(--font-display)',
+              fontWeight: '700', width: '100%', textAlign: 'left', whiteSpace: 'nowrap',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; e.currentTarget.style.color = '#ef4444'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(239,68,68,0.7)'; }}
+          >
+            <span style={{ fontSize: '1rem', flexShrink: 0 }}>🚪</span>
+            {sidebarOpen && 'Logout'}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main area */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Top bar */}
+        <header style={{
+          height: '60px', background: '#fff',
+          borderBottom: '1px solid #e2e8f0',
+          display: 'flex', alignItems: 'center',
+          padding: '0 1.5rem', gap: '1rem', flexShrink: 0,
+          boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        }}>
+          {title && (
+            <h1 style={{
+              fontFamily: 'var(--font-display)', fontSize: '1.3rem',
+              fontWeight: '900', color: '#0f172a',
+              textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0,
+            }}>{title}</h1>
+          )}
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{
+              background: role === 'admin' ? '#fef2f2' : '#f0fdf4',
+              border: role === 'admin' ? '1px solid #fecaca' : '1px solid #bbf7d0',
+              borderRadius: '999px', padding: '0.3rem 0.85rem',
+              fontFamily: 'var(--font-display)', fontSize: '0.72rem',
+              fontWeight: '800', color: role === 'admin' ? '#C62828' : '#15803d', letterSpacing: '0.1em',
+            }}>
+              {role === 'admin' ? '🛡️ ADMIN SESSION' : `👨‍✈️ OFFICER: ${currentUser?.ward_name || 'Ward Officer'}`}
+            </div>
+            <Link to="/" style={{
+              color: '#64748b', fontSize: '0.8rem', fontWeight: '600',
+              textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px',
+            }}>← Back to site</Link>
+          </div>
+        </header>
+
+        {/* Scrollable content */}
+        <main style={{
+          flex: 1, overflowY: 'auto',
+          padding: '2rem',
+          background: '#f8fafc',
+        }}>
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {children}
+          </motion.div>
+        </main>
+      </div>
     </div>
   );
 };

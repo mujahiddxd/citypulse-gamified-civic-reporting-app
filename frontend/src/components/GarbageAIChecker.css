@@ -1,0 +1,485 @@
+/* ============================================
+   GarbageAIChecker — AI Photo Verification UI
+   ============================================ */
+
+/* ── Analyze Button ─────────────────────────── */
+.ai-checker-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.85rem 1.25rem;
+  border: 2px solid #111;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  color: #fff;
+  font-family: var(--font-display, 'Inter', sans-serif);
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 3px 3px 0px #111;
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-checker-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 4px 5px 0px #111;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+
+.ai-checker-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 1px 1px 0px #111;
+}
+
+.ai-checker-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.ai-checker-btn .btn-shimmer {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 200%; }
+}
+
+/* ── Scanning Animation ─────────────────────── */
+.ai-scanning-container {
+  background: #f8fafc;
+  border: 2px solid #111;
+  border-radius: 12px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  box-shadow: 3px 3px 0px #111;
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-scanning-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #3b82f6, #8b5cf6, transparent);
+  animation: scanLine 1.5s ease-in-out infinite;
+}
+
+@keyframes scanLine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.ai-scanning-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.8; }
+}
+
+.ai-scanning-text {
+  font-family: var(--font-display, 'Inter', sans-serif);
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #334155;
+  margin-bottom: 0.75rem;
+}
+
+.ai-scanning-subtext {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.ai-progress-bar {
+  width: 80%;
+  max-width: 240px;
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  margin: 1rem auto 0;
+  overflow: hidden;
+}
+
+.ai-progress-fill {
+  height: 100%;
+  width: 30%;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  border-radius: 999px;
+  animation: progressPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes progressPulse {
+  0% { width: 15%; transform: translateX(0); }
+  50% { width: 60%; transform: translateX(50%); }
+  100% { width: 15%; transform: translateX(300%); }
+}
+
+/* ── Result Card ────────────────────────────── */
+.ai-result-card {
+  border: 2px solid #111;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 3px 3px 0px #111;
+}
+
+.ai-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.ai-result-header h4 {
+  font-family: var(--font-display, 'Inter', sans-serif);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #64748b;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ai-result-body {
+  padding: 1.25rem;
+}
+
+/* ── Verified / Not Verified Badge ──────────── */
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-family: var(--font-display, 'Inter', sans-serif);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ai-badge-verified {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.ai-badge-not-verified {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.ai-badge-unavailable {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+/* ── Confidence Meter ───────────────────────── */
+.ai-confidence-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.ai-confidence-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display, 'Inter', sans-serif);
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: #111;
+  border: 3px solid #111;
+  box-shadow: 2px 2px 0px #111;
+  flex-shrink: 0;
+}
+
+.ai-confidence-details {
+  flex: 1;
+}
+
+.ai-confidence-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  margin-bottom: 0.2rem;
+}
+
+.ai-confidence-bar-track {
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 0.35rem;
+}
+
+.ai-confidence-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.8s ease;
+}
+
+/* ── Severity Badge ─────────────────────────── */
+.ai-severity-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.ai-severity-badge {
+  padding: 0.3rem 0.75rem;
+  border-radius: 8px;
+  font-family: var(--font-display, 'Inter', sans-serif);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid;
+}
+
+.ai-severity-low {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+.ai-severity-medium {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.ai-severity-high {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+/* ── AI Statement ───────────────────────────── */
+.ai-statement {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.ai-statement-verified {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.ai-statement-warning {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #78350f;
+}
+
+.ai-statement-neutral {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+/* ── Warning Banner (when AI says not garbage but user can still submit) ── */
+.ai-warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: #fffbeb;
+  border: 2px solid #fde68a;
+  border-radius: 10px;
+  margin-top: 0.75rem;
+}
+
+.ai-warning-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.ai-warning-content h5 {
+  font-family: var(--font-display, 'Inter', sans-serif);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #92400e;
+  margin: 0 0 0.3rem;
+}
+
+.ai-warning-content p {
+  font-size: 0.8rem;
+  color: #a16207;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.ai-override-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.6rem;
+  padding: 0.4rem 0.85rem;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  color: #92400e;
+  font-family: var(--font-display, 'Inter', sans-serif);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ai-override-btn:hover {
+  background: #fde68a;
+  border-color: #f59e0b;
+}
+
+/* ── Labels Row ─────────────────────────────── */
+.ai-labels-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.ai-label-chip {
+  padding: 0.2rem 0.55rem;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.ai-label-chip.matched {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e40af;
+}
+
+/* ── Retry Button ───────────────────────────── */
+.ai-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 1rem;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #475569;
+  font-family: var(--font-display, 'Inter', sans-serif);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 0.75rem;
+}
+
+.ai-retry-btn:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+/* ── Admin AI Review Panel (in AdminComplaints) ── */
+.ai-admin-panel {
+  background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.ai-admin-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.ai-admin-panel-header h4 {
+  font-family: var(--font-display, 'Inter', sans-serif);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #1e40af;
+  margin: 0;
+}
+
+.ai-admin-stats {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ai-admin-stat {
+  flex: 1;
+  min-width: 80px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.6rem;
+  text-align: center;
+}
+
+.ai-admin-stat-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #94a3b8;
+  letter-spacing: 0.06em;
+}
+
+.ai-admin-stat-value {
+  font-family: var(--font-display, 'Inter', sans-serif);
+  font-size: 1rem;
+  font-weight: 900;
+  color: #111;
+  margin-top: 0.15rem;
+}

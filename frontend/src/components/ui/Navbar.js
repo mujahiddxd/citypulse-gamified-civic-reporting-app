@@ -1,110 +1,129 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import RotatingText from './RotatingText';
+import CardNav from './CardNav';
 
 const Navbar = () => {
-  const { user, logout } = useAuth();
+  const { user: authUser, logout } = useAuth();
+  const { equippedBorder } = useTheme();
   const navigate = useNavigate();
-  const location = useLocation();
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  const handleLogout = async () => { await logout(); navigate('/'); };
-  const isActive = (path) => location.pathname === path;
+  // Check if logged in via standalone admin portal
+  const adminToken = localStorage.getItem('citypulse_admin_token');
+  
+  // Synthetic user for master admin if no regular user is logged in
+  const user = authUser || (adminToken ? { 
+    username: 'SystemAdmin', 
+    role: 'admin', 
+    coins: 999999, 
+    isMaster: true 
+  } : null);
+
+  const handleLogout = async () => {
+    await logout();
+    setShowProfileMenu(false);
+    navigate('/');
+  };
+
+  const navItems = [
+    {
+      label: "Discover",
+      bgColor: "#111111",
+      textColor: "#ffffff",
+      links: [
+        { label: "📍 Heatmap", path: "/heatmap" },
+        { label: "🏆 Leaderboard", path: "/leaderboard" },
+        { label: "📰 Public Feed", path: "/reports" }
+      ]
+    },
+    {
+      label: "Rewards", 
+      bgColor: "#111111",
+      textColor: "#ffffff",
+      links: [
+        { label: "🎁 Daily Rewards", path: "/rewards" },
+        { label: "🛍️ Item Store", path: "/store" },
+        { label: "🎒 Inventory", path: "/inventory" }
+      ]
+    },
+    {
+      label: "Action",
+      bgColor: "#111111", 
+      textColor: "#ffffff",
+      links: [
+        { label: "📢 Submit Report", path: "/submit" },
+        { label: "🏢 About Us", path: "/about" }
+      ]
+    }
+  ];
+
+  // Add Admin/Officer menu if authorized (either via Supabase role or standalone admin token)
+  const isMasterAdmin = localStorage.getItem('citypulse_admin_token');
+  const isAuthorized = isMasterAdmin || (user && (user.role === 'admin' || user.role === 'officer'));
+
+  if (isAuthorized) {
+    const managementLinks = [];
+    const role = user?.role?.toLowerCase();
+    
+    if (role === 'officer') {
+      managementLinks.push({ label: "📋 Complaints", path: "/admin/complaints" });
+      managementLinks.push({ label: "🏢 Wards", path: "/wards" });
+    } else {
+      managementLinks.push({ label: "⚙️ Admin Panel", path: "/admin" });
+      managementLinks.push({ label: "📋 Complaints", path: "/admin/complaints" });
+      managementLinks.push({ label: "🏢 Wards", path: "/wards" });
+      managementLinks.push({ label: "📈 Analytics", path: "/admin/analytics" });
+    }
+
+    managementLinks.push({ label: "👤 My Profile", path: user?.username ? `/profile/${user.username}` : "/dashboard" });
+
+    navItems.push({
+      label: "Management",
+      bgColor: "#C62828", // Red theme for admin
+      textColor: "#ffffff",
+      links: managementLinks
+    });
+  }
+
+  const logo = (
+    <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', textDecoration: 'none' }}>
+      <span style={{
+        fontFamily: 'var(--font-display)',
+        fontSize: '1.6rem',
+        fontWeight: '900',
+        letterSpacing: '0.02em',
+        display: 'flex',
+        alignItems: 'center'
+      }}>
+        <span style={{ color: '#C62828' }}>
+          <RotatingText texts={['City']} mainClassName="overflow-hidden justify-center" staggerFrom="last" initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "-120%" }} staggerDuration={0.025} splitLevelClassName="overflow-hidden" transition={{ type: "spring", damping: 30, stiffness: 400 }} auto={false} loop={false} />
+        </span>
+        <span style={{ color: '#ffffff' }}>
+          <RotatingText texts={['Pulse']} mainClassName="overflow-hidden justify-center" staggerFrom="last" initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "-120%" }} staggerDuration={0.025} splitLevelClassName="overflow-hidden" transition={{ type: "spring", damping: 30, stiffness: 400 }} auto={false} loop={false} />
+        </span>
+      </span>
+    </Link>
+  );
 
   return (
-    <nav style={{
-      background: 'white', borderBottom: '1px solid #e5e7eb',
-      position: 'sticky', top: 0, zIndex: 1000,
-      height: '64px', display: 'flex', alignItems: 'center',
-      padding: '0 2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', maxWidth: '1400px', margin: '0 auto' }}>
-
-        {/* Logo */}
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <div style={{
-            width: '34px', height: '34px', background: '#C62828',
-            borderRadius: '8px', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', fontSize: '1.1rem',
-          }}>🗺️</div>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', fontWeight: '800', letterSpacing: '0.03em', textTransform: 'uppercase', color: '#111827' }}>
-            Garbage<span style={{ color: '#C62828' }}>Maps</span>
-          </span>
-        </Link>
-
-        {/* Nav Links */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.125rem' }}>
-          {[
-            { path: '/heatmap', label: 'Heatmap' },
-            { path: '/leaderboard', label: 'Leaderboard' },
-            { path: '/feedback', label: 'Feedback' },
-          ].map(({ path, label }) => (
-            <Link key={path} to={path} style={{
-              padding: '0.45rem 0.875rem',
-              fontFamily: 'var(--font-display)', fontSize: '0.85rem', fontWeight: '700',
-              letterSpacing: '0.06em', textTransform: 'uppercase',
-              color: isActive(path) ? '#C62828' : '#4B5563',
-              borderRadius: '6px',
-              background: isActive(path) ? '#FEF2F2' : 'transparent',
-              transition: 'all 0.15s',
-            }}>{label}</Link>
-          ))}
-          {user?.role === 'admin' && (
-            <Link to="/admin" style={{
-              padding: '0.45rem 0.875rem',
-              fontFamily: 'var(--font-display)', fontSize: '0.85rem', fontWeight: '700',
-              letterSpacing: '0.06em', textTransform: 'uppercase',
-              color: '#C62828', borderRadius: '6px', transition: 'all 0.15s',
-              background: location.pathname.startsWith('/admin') ? '#FEF2F2' : 'transparent',
-            }}>⚙️ Admin</Link>
-          )}
-        </div>
-
-        {/* Auth */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-          {user ? (
-            <>
-              <Link to="/submit" style={{
-                padding: '0.5rem 1rem', background: '#C62828', color: 'white',
-                borderRadius: '7px', fontFamily: 'var(--font-display)', fontSize: '0.82rem',
-                fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em',
-              }}>+ Report</Link>
-
-              <Link to={`/profile/${user.username}`} style={{
-                display: 'flex', alignItems: 'center', gap: '0.4rem',
-                padding: '0.4rem 0.75rem', background: '#FEF2F2',
-                border: '1px solid #FECACA', borderRadius: '7px',
-                fontSize: '0.82rem', color: '#991B1B',
-                fontFamily: 'var(--font-display)', fontWeight: '700',
-              }}>
-                ⭐ {user.xp || 0} XP
-              </Link>
-
-              <button onClick={handleLogout} style={{
-                padding: '0.4rem 0.75rem', background: 'transparent',
-                border: '1px solid #e5e7eb', borderRadius: '7px',
-                color: '#6B7280', fontSize: '0.82rem', cursor: 'pointer',
-                fontFamily: 'var(--font-display)', fontWeight: '700',
-                textTransform: 'uppercase', letterSpacing: '0.06em',
-              }}>Logout</button>
-            </>
-          ) : (
-            <>
-              <Link to="/login" style={{
-                padding: '0.5rem 1rem', background: 'white', color: '#374151',
-                border: '1.5px solid #d1d5db', borderRadius: '7px',
-                fontFamily: 'var(--font-display)', fontSize: '0.82rem',
-                fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em',
-              }}>Login</Link>
-              <Link to="/register" style={{
-                padding: '0.5rem 1rem', background: '#C62828', color: 'white',
-                borderRadius: '7px', fontFamily: 'var(--font-display)', fontSize: '0.82rem',
-                fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em',
-              }}>Sign Up</Link>
-            </>
-          )}
-        </div>
-      </div>
-    </nav>
+      <CardNav
+        logo={logo}
+        items={navItems}
+        user={user}
+        onLogout={handleLogout}
+        onProfileMenuToggle={() => setShowProfileMenu(!showProfileMenu)}
+        showProfileMenu={showProfileMenu}
+        setShowProfileMenu={setShowProfileMenu}
+        baseColor="#ffffff"
+        menuColor="#111111"
+        buttonBgColor="#ffffff"
+        buttonTextColor="#111111"
+        theme="light"
+      />
   );
 };
 

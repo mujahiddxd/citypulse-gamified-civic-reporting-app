@@ -1,33 +1,92 @@
+/**
+ * src/utils/api.js — Centralized Axios HTTP Client
+ * --------------------------------------------------
+ * Instead of importing axios directly in every component,
+ * all API calls go through this pre-configured axios instance.
+ *
+ * This gives us one place to:
+ *   1. Set the base URL for all requests
+ *   2. Automatically attach the correct auth token to every request
+ *   3. Handle global errors (e.g. auto-logout on 401 Unauthorized)
+ *
+ * USAGE in any component:
+ *   import api from '../utils/api';
+ *   const { data } = await api.get('/complaints');
+ *   const { data } = await api.post('/auth/login', { email, password });
+ *
+ * TOKEN SELECTION LOGIC:
+ * ──────────────────────
+ * The app has TWO types of auth tokens (see auth.js / admin-auth.js):
+ *   1. Regular user → Supabase JWT stored as 'access_token' in localStorage
+ *   2. Admin user   → Custom JWT stored as 'citypulse_admin_token' in localStorage
+ *
+ * For admin API routes (/admin/* or /analytics/*), the admin JWT is preferred.
+ * For all other routes, the Supabase token is used (or admin token as fallback).
+ */
 import axios from 'axios';
 
+// Create an axios instance with shared configuration.
+// Auto-normalize baseURL so missing or trailing /api does not cause 404s
 let rawBase = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-rawBase = rawBase.trim().replace(/\/$/, '');
-if (!rawBase.endsWith('/api')) {
-  rawBase = rawBase + '/api';
-}
+if (rawBase.endsWith('/')) rawBase = rawBase.slice(0, -1);
+const baseURL = rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`;
 
 const api = axios.create({
-  baseURL: rawBase,
-  timeout: 30000,
+  baseURL,
+  timeout: 30000, // 30 second timeout — prevents hanging requests
 });
 
-// Request interceptor - attach token
+// ── Request Interceptor ───────────────────────────────────────────────────────
+// Runs BEFORE every request is sent.
+// Reads the appropriate token from localStorage and adds it to the header.
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
+  const adminJwt = localStorage.getItem('citypulse_admin_token'); // Admin JWT
+  const supabaseToken = localStorage.getItem('access_token');         // User Supabase JWT
+
+  // Detect if this request is targeting an admin-specific endpoint
+  const isAdminApiCall = config.url?.startsWith('/admin') || config.url?.startsWith('/analytics');
+
+  // For admin routes: prefer adminJwt, but allow supabaseToken (for Officers).
+  // For regular routes: prefer supabaseToken.
+  // Only send Admin JWT to specific admin/analytics endpoints.
+  // Sending it to regular auth/profile routes causes Supabase to reject the request.
+  let token = null;
+  if (isAdminApiCall) {
+    token = adminJwt || supabaseToken;
+  } else {
+    token = supabaseToken; // Never send adminJwt to public/regular routes
+  }
+
   if (token) {
+    // Attach the token as a Bearer token in the Authorization header
     config.headers.Authorization = `Bearer ${token}`;
   }
-  return config;
+  return config; // Must return config for the request to proceed
 });
 
-// Response interceptor - handle 401
+// ── Response Interceptor ──────────────────────────────────────────────────────
+// Runs AFTER every response is received (or on error).
+// Pass-through for successful responses; handle 401 errors globally.
 api.interceptors.response.use(
-  (response) => response,
+  (response) => response, // Success: just pass it through unchanged
+
   (error) => {
+    // On 401 Unauthorized: the token is invalid or expired.
+    // Automatically log the user out and redirect to the appropriate login page.
     if (error.response?.status === 401) {
-      localStorage.removeItem('access_token');
-      window.location.href = '/login';
+      const isAdminRoute = window.location.pathname.startsWith('/admin');
+
+      if (isAdminRoute) {
+        // Admin session expired → clear admin token and go to admin login
+        localStorage.removeItem('citypulse_admin_token');
+        window.location.href = '/admin-login';
+      } else {
+        // User session expired → clear user token and go to regular login
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      }
     }
+    // Always re-throw the error so individual components can handle it too
     return Promise.reject(error);
   }
 );
